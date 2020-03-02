@@ -38,21 +38,12 @@ cpdef double logLikelihood_single_event(ndarray[double, ndim=2] hosts, double me
 
     # predict dl from the cosmology and the redshift
     dl = omega.LuminosityDistance(event_redshift)
-    
-    cdef double logp_detection = 0.0
-    cdef double logp_nondetection = 0.0
-    
-    if em_selection == 1:
-        # compute the probability p(G|O) that the event is located in a detected galaxy
-        # compute the probability p(notG|O) that the event is located in a non-detected galaxy as 1-p(G|O)
-        logp_detection      = log(em_selection_function(dl))
-        logp_nondetection   = logsumexp([0.0,logp_detection], b = [1,-1])
 
     # compute the weak lensing error
     weak_lensing_error = sigma_weak_lensing(event_redshift, dl)
-    
+
     # sum over the observed galaxies
-    # p(d|O,zgw,G)p(zgw|O,G) = exp(-0.5*((d-d(zgw,O))/sig_d)^2)*\sum_g w_g*exp(-0.5*(z_g-zgw)^2/sig_z_g^2)
+    # p(d|O,zgw,G)p(zgw|O,G) = exp(-0.5*((d-d(zgw,O))/sig_d)^2)*\sum_g w_g
     for i in range(N):
 
         sigma_z = hosts[i,1]*(1+hosts[i,0])
@@ -60,22 +51,12 @@ cpdef double logLikelihood_single_event(ndarray[double, ndim=2] hosts, double me
         logL_galaxy = -0.5*score_z*score_z+log(hosts[i,2])-log(sigma_z)-logTwoPiByTwo
         logL = log_add(logL,logL_galaxy)
 
-    # add the probability that the GW was in a seen galaxy, multiply by p(G|O)
-    if em_selection == 1: logL += logp_detection
-    
-    cdef double logLn = -np.inf
-    # sum over the unobserved galaxies, assuming they all have redshift = zgw
-    # p(d|O,zgw,notG)p(zgw|O,notG) = exp(-0.5*((d-d(zgw,O))/sig_d)^2)*\sum_g (1/Nn)*exp(-0.5*(zgw-zgw)^2/sig_zgw^2)
-    if em_selection == 1:
-        # multiply by p(notG|O)
-        logLn = logp_nondetection
-    
-    cdef double SigmaSquared = sigma**2+weak_lensing_error**2
-    cdef double logSigmaByTwo = 0.5*log(sigma**2+weak_lensing_error**2)
+    cdef double SigmaSquared = sigma**2
+    cdef double logSigmaByTwo = 0.5*log(sigma**2)
     cdef double log_norm = log(omega.IntegrateComovingVolumeDensity(zmax))
     cdef double logP     = log(omega.UniformComovingVolumeDensity(event_redshift))-log_norm
-    return (-0.5*(dl-meandl)*(dl-meandl)/SigmaSquared-logTwoPiByTwo-logSigmaByTwo)+log_add(logL,logLn)+logP
-    
+    return logL+(-0.5*(dl-meandl)*(dl-meandl)/SigmaSquared-logTwoPiByTwo-logSigmaByTwo)+logP
+
 cpdef double sigma_weak_lensing(double z, double dl):
     """
     Weak lensing error. From <REF>
@@ -103,7 +84,7 @@ cpdef double em_selection_function_normalisation(double zmin, double zmax, objec
     cdef double tmp
     for i in range(0,100):
         dl = omega.LuminosityDistance(z)
-        tmp = N*(log(1.0-em_selection_function(dl))+log(omega.ComovingVolumeElement(z)))#
+        tmp = N*(log(1.0-em_selection_function(dl))+log(omega.ComovingVolumeElement(z)))
         res = log_add(res,tmp)
         z   += dz
     return res+log(dz)
