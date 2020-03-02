@@ -1,4 +1,7 @@
-import numpy
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import numpy as np
 import pickle
 
 class Galaxy(object):
@@ -21,8 +24,13 @@ class Galaxy(object):
         self.is_detected = is_detected # Boolean value
 
 
-def read_galaxy_catalog(catalog_file, limits):
+
+
+def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
     '''
+    The catalog can be passed either as a path or, if precedently loaded, as np.array.
+    In case both data and path are provided, already loaded data are used.
+
     GLADE flag description:
 
     flag1:  Q: the source is from the SDSS-DR12 QSO catalog
@@ -37,20 +45,43 @@ def read_galaxy_catalog(catalog_file, limits):
     flag3:  0: velocity field correction has not been applied to the object
             1: we have subtracted the radial velocity of the object
     '''
-    glade_names = "PGCname, GWGCname, HyperLedaname, 2MASSname, SDSS-DR12name,\
+
+    if catalog_data is None and catalog_file is None:
+        raise SystemExit('No catalog data nor file provided.')
+
+    if catalog_data is not None and catalog_file is not None:
+        print('Both data and path provided. Loaded data will be used.')
+
+    if catalog_file is not None and catalog_data is None:
+        glade_names = "PGCname, GWGCname, HyperLedaname, 2MASSname, SDSS-DR12name,\
                     flag1, RA, DEC, dist, dist_err, z, B, B_err, B_abs, J, J_err,\
                     H, H_err, K, K_err, flag2, flag3"
-    data = np.genfromtxt(catalog_file, names=glade_names)
+        catalog_data = np.genfromtxt(catalog_file, names=glade_names)
+
     catalog = []
-    for i in range(data.shape[0]):
+    for i in range(catalog_data.shape[0]):
         # Check the entries: B-band mag (abs and apparent), redshift and proximity to GW position posteriors
-        if (~np.isnan(data['B'][i])) and (~np.isnan(data['B_abs'][i])) and (data['flag3'][i] == 1 or data['flag3'][i] == 3) and isinbound(data[i], limits):
-            catalog.append(Galaxy(i, data['RA'][i], data['DEC'][i], data['z'][i], 1, app_magnitude = data['band'][i])) # Controlla nomi con catalogo!
+        if (~np.isnan(catalog_data['B'][i])) and (~np.isnan(catalog_data['B_abs'][i])) and (catalog_data['flag2'][i] == 1 or catalog_data['flag2'][i] == 3) and isinbound(catalog_data[i], limits):
+            catalog.append(Galaxy(i, catalog_data['RA'][i], catalog_data['DEC'][i], catalog_data['z'][i], 1, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
             # Warning: GLADE stores no information on dz. 2B corrected.
 
     return catalog
 
 def isinbound(galaxy, limits):
     if (limits['RA'][0] <= galaxy['RA'] <= limits['RA'][1]) and (limits['DEC'][0] <= galaxy['DEC'] <= limits['DEC'][1]) and (limits['z'][0] <= galaxy['z'] <= limits['z'][1]) :
-        return 1
-    return 0
+        return True
+    return False
+
+
+def catalog_weight(catalog, weight = 'uniform'):
+    '''
+    Method:
+    Assign a weight for each galaxy in catalog according to the emission probability
+    of the galaxy.
+    Please note that this has to be a relative probability rather than an absolute one.
+
+        - Uniform weighting: 1/N ('uniform')
+    '''
+    if weight == 'uniform':
+        for galaxy in catalog:
+            galaxy.weight = 1./len(catalog)
