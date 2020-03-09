@@ -6,91 +6,167 @@ from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh
 cimport cython
 from scipy.integrate import quad
 from scipy.special.cython_special cimport erfc, hyp2f1
-from scipy.special import logsumexp
+from scipy.special import logsumexp, erf
 from scipy.optimize import newton
+from schechter import *
+from lal import LuminosityDistance, ComovingVolumeElement, ComovingVolume
+from scipy.integrate import quad
 
 cdef inline double log_add(double x, double y): return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 cdef inline double linear_density(double x, double a, double b): return a+log(x)*b
 
 @cython.cdivision(True)
 @cython.boundscheck(False)
-cpdef double logLikelihood_single_event(ndarray[double, ndim=2] hosts, double meandl, double sigma, object omega, double event_redshift, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
+
+cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object event, object omega, double m_th, int Ntot,int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
     Parameters:
     ===============
-    hosts: :obj:'numpy.array' with shape Nx3. The columns are redshift, redshift_error, angular_weight
+    hosts: :obj: 'numpy.array' with shape Nx3. The columns are redshift, redshift_error, angular_weight
+    event: :obj: 'something.Event'. Stores posterior distributions for GW event.
+    x: :obj: 'numpy.double' cpnest sampling array.
     meandl: :obj: 'numpy.double': mean of the DL marginal likelihood
     sigma: :obj:'numpy.double': standard deviation of the DL marginal likelihood
     omega: :obj:'lal.CosmologicalParameter': cosmological parameter structure
+    Ntot: :obj: 'numpy.int': Total number of galaxies in the considered volume (seen and unseen)
     event_redshift: :obj:'numpy.double': redshift for the the GW event
     em_selection :obj:'numpy.int': apply em selection function. optional. default = 0
     """
     cdef unsigned int i
     cdef unsigned int N = hosts.shape[0]
+    cdef unsigned int M = Ntot-N
     cdef double logTwoPiByTwo = 0.5*log(2.0*np.pi)
     cdef double logL_galaxy
     cdef double dl
     cdef double score_z, sigma_z
-    cdef double logL = -np.inf
-    cdef double weak_lensing_error
+    cdef double logL_sum = -np.inf
+    cdef double logL_prod = 0
+    cdef double p_no_post_dark, p_with_post_dark
 
-    # predict dl from the cosmology and the redshift
-    dl = omega.LuminosityDistance(event_redshift)
+    cdef object mockgalaxy, gal
 
-    # compute the weak lensing error
-    weak_lensing_error = sigma_weak_lensing(event_redshift, dl)
+    mockgalaxy = hosts[0]
+    mockgalaxy.is_detected = False
 
-    # sum over the observed galaxies
-    # p(d|O,zgw,G)p(zgw|O,G) = exp(-0.5*((d-d(zgw,O))/sig_d)^2)*\sum_g w_g
+    p_with_post = np.zeros(hosts.shape[0])
+    p_no_post   = np.zeros(hosts.shape[0])
+
+    # Attenzione: non sono ancora stati sistemati i prior sulle posizioni per la dark galaxy
     for i in range(N):
+        gal = hosts[i]
+        # Voglio calcolare, per ogni galassia, le due
+        # quantità rilevanti descritte in CosmoInfer.
+        p_no_post[i]   = ComputeLogLhNoPost(gal, omega, zmin, zmax)
+        p_with_post[i] = ComputeLogLhWithPost(gal, event, omega, zmin, zmax)
+    # Calcolo le likelihood anche per una singola dark galaxy
+    p_no_post_dark   = ComputeLogLhNoPost(mockgalaxy, omega, zmin, zmax)
+    p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax)
 
-        sigma_z = hosts[i,1]*(1+hosts[i,0])
-        score_z = (event_redshift-hosts[i,0])/sigma_z
-        logL_galaxy = -0.5*score_z*score_z+log(hosts[i,2])-log(sigma_z)-logTwoPiByTwo
-        logL = log_add(logL,logL_galaxy)
+    # Calcolo i termini che andranno sommati tra loro (logaritmi)
+    addends = np.zeros(N)
+    for i in range(N):
+        addends[i] = p_no_post.sum() - p_no_post[i] + p_with_post[i] + M*p_no_post_dark
+    dark_term = p_no_post.sum() + M*p_with_post_dark
 
-    cdef double SigmaSquared = sigma**2
-    cdef double logSigmaByTwo = 0.5*log(sigma**2)
-    cdef double log_norm = log(omega.IntegrateComovingVolumeDensity(zmax))
-    cdef double logP     = log(omega.UniformComovingVolumeDensity(event_redshift))-log_norm
-    return logL+(-0.5*(dl-meandl)*(dl-meandl)/SigmaSquared-logTwoPiByTwo-logSigmaByTwo)+logP
+    # Manca da fare la somma finale
 
-cpdef double sigma_weak_lensing(double z, double dl):
-    """
-    Weak lensing error. From <REF>
-    Parameters:
-    ===============
-    z: :obj:'numpy.double': redshift
-    dl: :obj:'numpy.double': luminosity distance
-    """
-    return 0.066*dl*((1.0-(1.0+z)**(-0.25))/0.25)**1.8
+    logL =
 
-@cython.cdivision(True)
-@cython.boundscheck(False)
-cpdef double em_selection_function(double dl):
-    return (1.0-dl/12000.)/(1.0+(dl/3700.0)**7)**1.35
+    return logL
 
-@cython.cdivision(True)
-@cython.boundscheck(False)
-cpdef double em_selection_function_number_density(double dl):
-    return (1.0)/(1.0+(dl/3700.0)**7)**1.35
+cpdef double absM(double z, double m, object omega):
+    '''
+    Magnitudine assoluta di soglia
+    '''
+    return m - 5.0*np.log10(1e5*LuminosityDistance(omega, z)) # promemoria: 10^5 è Mpc/10pc
 
-cpdef double em_selection_function_normalisation(double zmin, double zmax, object omega, int N = 1):
-    cdef int i = 0
-    cdef double z = zmin, dz = (zmax-zmin)/100.
-    cdef double res = -np.inf
-    cdef double tmp
-    for i in range(0,100):
-        dl = omega.LuminosityDistance(z)
-        tmp = N*(log(1.0-em_selection_function(dl))+log(omega.ComovingVolumeElement(z)))
-        res = log_add(res,tmp)
-        z   += dz
-    return res+log(dz)
+cpdef double SchVar(M, Mstar):
+    return 10**(0.4*(Mstar-M))
 
-cdef double find_redshift(object omega, double dl):
-    return newton(objective,1.0,args=(omega,dl))
+cpdef double myERF(double x):
+    return (1+erf(x))/2.
 
-cdef double objective(double z, object omega, double dl):
-    return dl - omega.LuminosityDistance(z)
+cpdef double gaussian(x,x0,sigma):
+    return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
+
+
+cpdef double Integrand_dark(z, omega, alpha, Mstar, Mmin, Mmax, CoVol):
+    return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*ComovingVolumeElement(z, omega)/CoVol
+
+cpdef double ComputeLogLhWithPost(object gal, object event, object omega):
+    '''
+    Attenzione: controllare i nomi al momento di definire la classe Event
+    '''
+
+    post_RA = event.post_RA
+    post_dec = event.post_dec
+    post_LD    = event.post_LD
+
+    if gal.is_detected:
+        if absM(gal.redshift, gal.app_magnitude, omega) > absM(gal.redshift, m_th, omega):
+            return -np.inf
+        else:
+            mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
+            z = np.linspace(zmin, zmax, 1000)
+            dz = z[3]-z[2]
+            I = 0.
+            for i in range(len(z)):
+                LD_i = lal.LuminosityDistance(omega,z[i])
+                I += dz*post_LD(LD_i)*gaussian(z[i], gal.redshift, gal.dredshift) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
+
+            return np.log(I*mag_int*gal.weight*post_RA(gal.RA)*post_dec(gal.dec))
+    else:
+        Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
+        z = np.linspace(zmin, zmax, 1000)
+        dz = z[3]-z[2]
+        CoVol = (ComovingVolume(omega,zmax)-ComovingVolume(omega,zmin))
+        I = np.zeros(len(z))
+        for i in range(len(z)):
+            LD_i = lal.LuminosityDistance(omega,z[i])
+            I[i] = post_LD(LD_i)*Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
+
+        Integral = 0.
+        for i in range(len(I)):
+            Integral += I[i]*dz
+        return np.log(Integral*gal.weight)
+
+
+
+
+cpdef object ComputeLogLhNoPost(object gal, object omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+    '''
+    Calcolo probabilità di osservare la galassia considerata.
+    Si considera, nel caso di galassia osservata, la densità di probabilità dovuta alla misura (gaussiane con errore da determinarsi)
+    Nel caso di galassia non osservata invece è necessario integrare sulle distribuzioni di probabilità (Schechter e dV/dz).
+
+    m_th è la threshold dello strumento, Mmax è la massima magnitudine assoluta si ipotizza una galassia possa avere.
+
+    Nota: Il prior in posizione per le galassie che non ho visto è 1/4pi (ovvero tutto il cielo) oppure una porzione corrispondente
+    alla regione al 95%?
+    '''
+
+    if (gal.is_detected and M_min is None) or (m_th is None and not gal.is_detected):
+        raise SystemExit('No M or m threshold provided.')
+
+    if gal.is_detected:
+        if absM(gal.redshift, gal.app_magnitude, omega) > absM(gal.redshift, m_th, omega):
+            return -np.inf
+        else:
+            return np.log(myERF(m_th))
+
+    else:
+        Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
+        z = np.linspace(zmin, zmax, 1000)
+        dz = z[3]-z[2]
+        CoVol = (ComovingVolume(omega,zmax)-ComovingVolume(omega,zmin))
+        I = np.zeros(len(z))
+        for i in range(len(z)):
+            Mth = absM(z[i], m_th, omega)
+            I[i] = Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
+
+        Integral = 0.
+        for i in range(len(I)):
+            Integral += I[i]*dz
+        return Integral
