@@ -62,7 +62,7 @@ def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
     for i in range(catalog_data.shape[0]):
         # Check the entries: B-band mag (abs and apparent), redshift and proximity to GW position posteriors
         if (~np.isnan(catalog_data['B'][i])) and (~np.isnan(catalog_data['B_abs'][i])) and (catalog_data['flag2'][i] == 1 or catalog_data['flag2'][i] == 3) and isinbound(catalog_data[i], limits):
-            catalog.append(Galaxy(i, catalog_data['RA'][i], catalog_data['DEC'][i], catalog_data['z'][i], 1, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
+            catalog.append(Galaxy(i, catalog_data['RA'][i], catalog_data['DEC'][i], catalog_data['z'][i], True, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
             # Warning: GLADE stores no information on dz. 2B corrected.
 
     return catalog
