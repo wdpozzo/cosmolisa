@@ -169,4 +169,4 @@ cpdef object ComputeLogLhNoPost(object gal, object omega, double zmin, double zm
         Integral = 0.
         for i in range(len(I)):
             Integral += I[i]*dz
-        return Integral
+        return np.log(Integral)
