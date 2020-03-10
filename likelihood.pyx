@@ -66,14 +66,18 @@ cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object ev
 
     # Calcolo i termini che andranno sommati tra loro (logaritmi)
     addends = np.zeros(N)
+    sum = p_no_post.sum()
     for i in range(N):
-        addends[i] = p_no_post.sum() - p_no_post[i] + p_with_post[i] + M*p_no_post_dark
-    dark_term = p_no_post.sum() + M*p_with_post_dark
+        addends[i] = sum - p_no_post[i] + p_with_post[i] + M*p_no_post_dark
+    dark_term = sum + M*p_with_post_dark
 
     # Manca da fare la somma finale
+    logL = -np.inf
 
-    logL =
-
+    for i in range(N):
+        logL = log_add(addend[i], logL)
+    for i in range(M):
+        logL = log_add(dark_term, logL)
     return logL
 
 cpdef double absM(double z, double m, object omega):
