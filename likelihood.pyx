@@ -11,6 +11,7 @@ from scipy.optimize import newton
 from schechter import *
 from lal import LuminosityDistance, ComovingVolumeElement, ComovingVolume
 from scipy.integrate import quad
+from galaxies import *
 
 cdef inline double log_add(double x, double y): return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 cdef inline double linear_density(double x, double a, double b): return a+log(x)*b
@@ -18,7 +19,7 @@ cdef inline double linear_density(double x, double a, double b): return a+log(x)
 @cython.cdivision(True)
 @cython.boundscheck(False)
 
-cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object event, object omega, double m_th, int Ntot,int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
+cpdef double logLikelihood_single_event(list hosts, object event, object omega, double m_th, int Ntot, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
@@ -35,7 +36,7 @@ cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object ev
     em_selection :obj:'numpy.int': apply em selection function. optional. default = 0
     """
     cdef unsigned int i
-    cdef unsigned int N = hosts.shape[0]
+    cdef unsigned int N = len(hosts)
     cdef unsigned int M = Ntot-N
     cdef double logTwoPiByTwo = 0.5*log(2.0*np.pi)
     cdef double logL_galaxy
@@ -47,12 +48,10 @@ cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object ev
 
     cdef object mockgalaxy, gal
 
-    mockgalaxy = hosts[0]
-    mockgalaxy.is_detected = False
+    mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1/N)
 
-    p_with_post = np.zeros(hosts.shape[0])
-    p_no_post   = np.zeros(hosts.shape[0])
-
+    p_with_post = np.zeros(N)
+    p_no_post   = np.zeros(N)
     # Attenzione: non sono ancora stati sistemati i prior sulle posizioni per la dark galaxy
     for i in range(N):
         gal = hosts[i]
@@ -72,10 +71,10 @@ cpdef double logLikelihood_single_event(ndarray[object, ndim=2] hosts, object ev
     dark_term = sum + M*p_with_post_dark
 
     # Manca da fare la somma finale
-    logL = -np.inf
+    logL = 0
 
     for i in range(N):
-        logL = log_add(addend[i], logL)
+        logL = log_add(addends[i], logL)
     for i in range(M):
         logL = log_add(dark_term, logL)
     return logL
@@ -84,7 +83,7 @@ cpdef double absM(double z, double m, object omega):
     '''
     Magnitudine assoluta di soglia
     '''
-    return m - 5.0*np.log10(1e5*LuminosityDistance(omega, z)) # promemoria: 10^5 è Mpc/10pc
+    return m - 5.0*np.log10(1e5*omega.LuminosityDistance(z)) # promemoria: 10^5 è Mpc/10pc
 
 cpdef double SchVar(M, Mstar):
     return 10**(0.4*(Mstar-M))
@@ -97,19 +96,19 @@ cpdef double gaussian(x,x0,sigma):
 
 
 cpdef double Integrand_dark(z, omega, alpha, Mstar, Mmin, Mmax, CoVol):
-    return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*ComovingVolumeElement(z, omega)/CoVol
+    return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*omega.ComovingVolumeElement(z)/CoVol
 
-cpdef double ComputeLogLhWithPost(object gal, object event, object omega):
+cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
 
     post_RA = event.post_RA
-    post_dec = event.post_dec
+    post_DEC = event.post_DEC
     post_LD    = event.post_LD
 
     if gal.is_detected:
-        if absM(gal.redshift, gal.app_magnitude, omega) > absM(gal.redshift, m_th, omega):
+        if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
             return -np.inf
         else:
             mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
@@ -117,18 +116,20 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega):
             dz = z[3]-z[2]
             I = 0.
             for i in range(len(z)):
-                LD_i = lal.LuminosityDistance(omega,z[i])
-                I += dz*post_LD(LD_i)*gaussian(z[i], gal.redshift, gal.dredshift) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
+                LD_i = omega.LuminosityDistance(z[i])
+                I += dz*post_LD(LD_i)*gaussian(z[i], gal.z, gal.z) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
 
-            return np.log(I*mag_int*gal.weight*post_RA(gal.RA)*post_dec(gal.dec))
+            return np.log(I*mag_int*gal.weight*post_RA(gal.RA)*post_DEC(gal.DEC))
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
         z = np.linspace(zmin, zmax, 1000)
         dz = z[3]-z[2]
-        CoVol = (ComovingVolume(omega,zmax)-ComovingVolume(omega,zmin))
+        CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
+        print(CoVol)
         I = np.zeros(len(z))
         for i in range(len(z)):
-            LD_i = lal.LuminosityDistance(omega,z[i])
+            LD_i = omega.LuminosityDistance(z[i])
+            Mth = absM(z[i], m_th, omega)
             I[i] = post_LD(LD_i)*Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
 
         Integral = 0.
@@ -155,7 +156,7 @@ cpdef object ComputeLogLhNoPost(object gal, object omega, double zmin, double zm
         raise SystemExit('No M or m threshold provided.')
 
     if gal.is_detected:
-        if absM(gal.redshift, gal.app_magnitude, omega) > absM(gal.redshift, m_th, omega):
+        if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
             return -np.inf
         else:
             return np.log(myERF(m_th))
@@ -164,7 +165,7 @@ cpdef object ComputeLogLhNoPost(object gal, object omega, double zmin, double zm
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
         z = np.linspace(zmin, zmax, 1000)
         dz = z[3]-z[2]
-        CoVol = (ComovingVolume(omega,zmax)-ComovingVolume(omega,zmin))
+        CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
         I = np.zeros(len(z))
         for i in range(len(z)):
             Mth = absM(z[i], m_th, omega)
