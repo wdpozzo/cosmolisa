@@ -130,7 +130,7 @@ class CosmologicalModel(cpnest.model.Model):
         #                         em_selection = self.em_selection, zmin = self.bounds[2+j][0], zmax = self.bounds[2+j][1]) for j,e in enumerate(self.data)])
         logL=0.
         for e in events:
-            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., 1, zmin = e.zmin, zmax = e.zmax)
+            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., Ntot = 1, zmin = e.zmin, zmax = e.zmax)
         self.O.DestroyCosmologicalParameters()
 
         return logL
@@ -162,11 +162,11 @@ if __name__=='__main__':
     em_selection = opts.em_selection
 
     if opts.event_class == 'TEST':
-        catalog_file = 'mock_catalog.txt'
-        skypos = {'z':0.007, 'RA':np.deg2rad(182.656296), 'DEC':np.deg2rad(16.032934)}
-        errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
+        catalog_file = 'catalog_0.txt'
+        # skypos = {'z':0.07, 'RA':np.deg2rad(182.656296), 'DEC':np.deg2rad(16.032934)}
+        errors = {'z':0.02, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,0,0,0) # True cosmology
-        events = readdata.read_event(opts.event_class, skypos = skypos, errors = errors, omega = omega, catalog_file = catalog_file)
+        events = readdata.read_event(opts.event_class, errors = errors, omega = omega, catalog_file = catalog_file, input_folder = opts.data)
 
     else:
         events = readdata.read_event(opts.event_class, opts.data, opts.event)

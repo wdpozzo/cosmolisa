@@ -13,15 +13,15 @@ class Galaxy(object):
     """
     def __init__(self, ID, right_ascension, declination, redshift, is_detected, abs_magnitude=None, app_magnitude=None, weight=None):
 
-        self.ID                 = ID
-        self.RA    = right_ascension
-        self.DEC       = declination
-        self.abs_magnitude      = abs_magnitude
-        self.app_magnitude      = app_magnitude
-        self.z    = redshift
-        self.dz  = redshift/10.
-        self.weight      = weight
-        self.is_detected = is_detected # Boolean value
+        self.ID             = ID
+        self.RA             = right_ascension
+        self.DEC            = declination
+        self.abs_magnitude  = abs_magnitude
+        self.app_magnitude  = app_magnitude
+        self.z              = redshift
+        self.dz             = redshift*0.1
+        self.weight         = weight
+        self.is_detected    = is_detected # Boolean value
 
 
 
@@ -72,7 +72,6 @@ def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
 
 def isinbound(galaxy, limits):
     if (limits['RA'][0] <= np.deg2rad(galaxy['RA']) <= limits['RA'][1]) and (limits['DEC'][0] <= np.deg2rad(galaxy['DEC']) <= limits['DEC'][1]) and (limits['z'][0] <= galaxy['z'] <= limits['z'][1]) :
-        print('good')
         return True
     return True
 

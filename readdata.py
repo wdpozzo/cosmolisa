@@ -67,21 +67,19 @@ class Event_test(object):
         self.ramax   = RA_true+3*dRA
         self.decmin  = DEC_true-3*dDEC
         self.decmax  = DEC_true+3*dDEC
-        self.zmin    = z_true+3*dz
-        self.zmax    = z_true-3*dz
+        self.zmin    = z_true-3*dz
+        self.zmax    = z_true+3*dz
 
         if catalog_file is None and catalog_data is None:
             raise SystemExit('No catalog provided')
 
         catalog = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, catalog_data, catalog_file)
 
-        print(catalog)
-
         self.potential_galaxy_hosts = catalog
         self.n_hosts                = len(self.potential_galaxy_hosts)
         self.ID                     = ID
         self.LD                     = lal.LuminosityDistance(omega, z_true)
-        self.dLD                    = lal.LuminosityDistance(omega, dz)
+        self.dLD                    = self.LD-lal.LuminosityDistance(omega, z_true-dz)
         self.dz                     = dz
         self.dRA                    = dRA
         self.dDEC                   = dDEC
@@ -90,7 +88,7 @@ class Event_test(object):
         self.DEC_true               = DEC_true
 
     def post_LD(self, LD):
-        app = gaussian(LD, self.LD, self.dz)
+        app = gaussian(LD, self.LD, self.dLD)
         return app
 
     def post_RA(self, RA):
@@ -102,13 +100,24 @@ class Event_test(object):
         return app
 
 
-def read_TEST_event(skypos = None, errors = None, omega = None, catalog_file = None, catalog_data = None):
+def read_TEST_event(skypos = None, errors = None, omega = None, catalog_file = None, input_folder = None, catalog_data = None):
     '''
     Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
     '''
-    event = [Event_test(0, errors['z'], errors['RA'], errors['DEC'], skypos['z'], skypos['RA'], skypos['DEC'], omega, catalog_file, catalog_data)]
+    all_files   = os.listdir(input_folder)
+    events_list = [f for f in all_files if 'catalog' in f]
+    events = []
 
-    return np.array(event)
+    for ev in events_list:
+        catalog_file        = input_folder+"/"+ev
+        event_file          = open(catalog_file,"r")
+        data                = event_file.readline().split(' ')
+        events.append(Event_test(0, errors['z'], errors['RA'], errors['DEC'], float(data[10]), np.deg2rad(float(data[6])), np.deg2rad(float(data[7])), omega, catalog_file, catalog_data))
+        event_file.close()
+
+
+
+    return np.array(events)
 
 
 def read_event(event_class,*args,**kwargs):

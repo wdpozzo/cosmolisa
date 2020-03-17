@@ -62,7 +62,6 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
     # Calcolo le likelihood anche per una singola dark galaxy
     p_no_post_dark   = ComputeLogLhNoPost(mockgalaxy, omega, zmin, zmax)
     p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax)
-
     # Calcolo i termini che andranno sommati tra loro (logaritmi)
     addends = np.zeros(N)
     sum = p_no_post.sum()
@@ -71,10 +70,11 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
     dark_term = sum + M*p_with_post_dark
 
     # Manca da fare la somma finale
-    logL = 0
 
-    for i in range(N):
-        logL = log_add(addends[i], logL)
+    logL = addends[0]
+
+    for i in range(N-1):
+        logL = log_add(addends[i+1], logL)
     for i in range(M):
         logL = log_add(dark_term, logL)
     return logL
@@ -90,6 +90,7 @@ cpdef double SchVar(M, Mstar):
 
 cpdef double myERF(double x):
     return (1+erf(x))/2.
+
 
 cpdef double gaussian(x,x0,sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
@@ -118,14 +119,12 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double
             for i in range(len(z)):
                 LD_i = omega.LuminosityDistance(z[i])
                 I += dz*post_LD(LD_i)*gaussian(z[i], gal.z, gal.z) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
-
             return np.log(I*mag_int*gal.weight*post_RA(gal.RA)*post_DEC(gal.DEC))
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
         z = np.linspace(zmin, zmax, 1000)
         dz = z[3]-z[2]
         CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
-        print(CoVol)
         I = np.zeros(len(z))
         for i in range(len(z)):
             LD_i = omega.LuminosityDistance(z[i])
