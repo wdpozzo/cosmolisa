@@ -104,9 +104,9 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
 
-    post_RA = event.post_RA
+    post_RA  = event.post_RA
     post_DEC = event.post_DEC
-    post_LD    = event.post_LD
+    post_LD  = event.post_LD
 
     if gal.is_detected:
         if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
@@ -118,8 +118,8 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double
             I = 0.
             for i in range(len(z)):
                 LD_i = omega.LuminosityDistance(z[i])
-                I += dz*post_LD(LD_i)*gaussian(z[i], gal.z, gal.z) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
-            return np.log(I*mag_int*gal.weight*post_RA(gal.RA)*post_DEC(gal.DEC))
+                I += dz*event.post_LD(LD_i)*gaussian(z[i], gal.z, gal.dz) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
+            return np.log(I*mag_int*gal.weight*event.post_RA(gal.RA)*event.post_DEC(gal.DEC))
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
         z = np.linspace(zmin, zmax, 1000)
