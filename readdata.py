@@ -67,8 +67,8 @@ class Event_test(object):
         self.ramax   = RA_true+3*dRA
         self.decmin  = DEC_true-3*dDEC
         self.decmax  = DEC_true+3*dDEC
-        self.zmin    = z_true-3*dz
-        self.zmax    = z_true+3*dz
+        self.zmin    = z_true-3*(z_true*0.1)
+        self.zmax    = z_true+3*(z_true*0.1)
 
         if catalog_file is None and catalog_data is None:
             raise SystemExit('No catalog provided')
@@ -80,7 +80,7 @@ class Event_test(object):
         self.ID                     = ID
         self.LD                     = lal.LuminosityDistance(omega, z_true)
         self.dLD                    = self.LD-lal.LuminosityDistance(omega, z_true-dz)
-        self.dz                     = dz
+        self.dz                     = (z_true*0.1)
         self.dRA                    = dRA
         self.dDEC                   = dDEC
         self.z_true                 = z_true
