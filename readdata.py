@@ -100,21 +100,25 @@ class Event_test(object):
         return app
 
 
-def read_TEST_event(skypos = None, errors = None, omega = None, catalog_file = None, input_folder = None, catalog_data = None):
+def read_TEST_event(skypos = None, errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None):
     '''
     Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
     '''
     all_files   = os.listdir(input_folder)
     events_list = [f for f in all_files if 'catalog' in f]
-    print(events_list)
     events = []
 
+    if N_ev_max is not None:
+        events_list = events_list[:N_ev_max:]
+
+    i = 0
     for ev in events_list:
         catalog_file        = input_folder+"/"+ev
         event_file          = open(catalog_file,"r")
         data                = event_file.readline().split(' ')
-        events.append(Event_test(0, errors['z'], errors['RA'], errors['DEC'], float(data[10]), np.deg2rad(float(data[6])), np.deg2rad(float(data[7])), omega, catalog_file, catalog_data))
+        events.append(Event_test(i, errors['z'], errors['RA'], errors['DEC'], float(data[10]), np.deg2rad(float(data[6])), np.deg2rad(float(data[7])), omega, catalog_file, catalog_data))
         event_file.close()
+        i += 1
 
 
 

@@ -4,6 +4,9 @@
 import cosmological_model as CM
 import numpy as np
 import matplotlib.pyplot as plt
+import lal
+import readdata
+import cpnest.model
 
 class options(object):
 
@@ -21,18 +24,18 @@ if __name__ == '__main__':
     Ntot_events = 10
 
     for i in range(Ntot_events):
-        opts = options('TEST', i, './MDC')
+        opts = options('TEST', i, './MDC', nevmax = i+1)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,0,0,0) # True cosmology
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax)
 
         model = opts.model
-        output = opts.data+"/EVENT_1%03d/"%(opts.event+1)
+        output = opts.data+"/MULTIPLEEVENT_1%03d/"%(opts.event+1)
 
         print('Working on run {0} of {1}'.format(i, Ntot_events))
 
-        C = CosmologicalModel(model,
+        C = CM.CosmologicalModel(model,
                               events,
                               em_selection  = 0,
                               snr_threshold = 0.0,
