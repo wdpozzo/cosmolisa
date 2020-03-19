@@ -48,7 +48,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
 
     cdef object mockgalaxy, gal
 
-    mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1/N)
+    mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1./Ntot)
 
     p_with_post = np.zeros(N)
     p_no_post   = np.zeros(N)
@@ -71,12 +71,14 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
 
     # Manca da fare la somma finale
 
-    logL = addends[0]
+    logL = -np.inf
+    for i in range(N):
 
-    for i in range(N-1):
-        logL = log_add(addends[i+1], logL)
+        logL = log_add(addends[i], logL)
+
     for i in range(M):
-        logL = log_add(dark_term, logL)
+        if np.isfinite(dark_term):
+            logL = log_add(dark_term, logL)
     return logL
 
 cpdef double absM(double z, double m, object omega):
@@ -130,7 +132,6 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double
             LD_i = omega.LuminosityDistance(z[i])
             Mth = absM(z[i], m_th, omega)
             I[i] = post_LD(LD_i)*Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
-
         Integral = 0.
         for i in range(len(I)):
             Integral += I[i]*dz

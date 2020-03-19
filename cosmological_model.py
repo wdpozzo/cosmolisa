@@ -128,7 +128,7 @@ class CosmologicalModel(cpnest.model.Model):
         # compute the p(GW|G\Omega)p(G|\Omega)+p(GW|~G\Omega)p(~G|\Omega)
         # logL = np.sum([lk.logLikelihood_single_event(self.hosts[e.ID], e.dl, e.sigma, self.O,
         #                         em_selection = self.em_selection, zmin = self.bounds[2+j][0], zmax = self.bounds[2+j][1]) for j,e in enumerate(self.data)])
-        logL=0.
+        logL = 0.
         for e in events:
             logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., Ntot = 1, zmin = e.zmin, zmax = e.zmax)
         self.O.DestroyCosmologicalParameters()
@@ -162,9 +162,9 @@ if __name__=='__main__':
     em_selection = opts.em_selection
 
     if opts.event_class == 'TEST':
-        catalog_file = 'catalog_0.txt'
+        catalog_file = 'catalog_1.txt'
         # skypos = {'z':0.07, 'RA':np.deg2rad(182.656296), 'DEC':np.deg2rad(16.032934)}
-        errors = {'z':0.0009, 'RA':0.01, 'DEC':0.01}
+        errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,0,0,0) # True cosmology
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, catalog_file = catalog_file, input_folder = opts.data)
 

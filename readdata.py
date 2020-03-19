@@ -106,6 +106,7 @@ def read_TEST_event(skypos = None, errors = None, omega = None, catalog_file = N
     '''
     all_files   = os.listdir(input_folder)
     events_list = [f for f in all_files if 'catalog' in f]
+    print(events_list)
     events = []
 
     for ev in events_list:
