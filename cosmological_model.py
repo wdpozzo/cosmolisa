@@ -18,6 +18,7 @@ import cosmology as cs
 import numpy as np
 import likelihood as lk
 import matplotlib.pyplot as plt
+from displaypost import plot_post
 
 
 """
@@ -251,3 +252,4 @@ if __name__=='__main__':
                         filename=os.path.join(output,'joint_posterior.pdf'))
 
     fig.savefig(os.path.join(output,'joint_posterior.pdf'), bbox_inches='tight')
+    plot_post(work, 'h', output)

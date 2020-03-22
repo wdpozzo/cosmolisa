@@ -1,12 +1,26 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import cosmological_model as CM
-import numpy as np
-import matplotlib.pyplot as plt
+from __future__ import unicode_literals
+from optparse import OptionParser
+from scipy.special import logsumexp
+from functools import reduce
+from scipy.stats import norm
+import unittest
 import lal
-import readdata
 import cpnest.model
+import sys
+import os
+import readdata
+import matplotlib
+import corner
+import itertools as it
+import cosmology as cs
+import numpy as np
+import likelihood as lk
+import cosmological_model as CM
+import matplotlib.pyplot as plt
+
 
 class options(object):
 
@@ -23,7 +37,8 @@ if __name__ == '__main__':
 
     Ntot_events = 10
 
-    for i in range(Ntot_events):
+    for j in range(Ntot_events-7):
+        i = j+7
         opts = options('TEST', i, './MDC', nevmax = i+1)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
@@ -33,7 +48,7 @@ if __name__ == '__main__':
         model = opts.model
         output = opts.data+"/MULTIPLEEVENT_1%03d/"%(opts.event+1)
 
-        print('Working on run {0} of {1}'.format(i, Ntot_events))
+        print('Working on run {0} of {1}'.format(i+1, Ntot_events))
 
         C = CM.CosmologicalModel(model,
                               events,

@@ -8,42 +8,6 @@ import lal
 def gaussian(x,x0,sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
 
-# class Event(object):
-#     """
-#     Event class:
-#     initialise a GW event based on its distance and potential
-#     galaxy hosts
-#     """
-#     def __init__(self,
-#                  ID,
-#                  dl,
-#                  sigma,
-#                  redshifts,
-#                  dredshifts,
-#                  weights,
-#                  zmin,
-#                  zmax,
-#                  snr,
-#                  z_true,
-#                  snr_threshold = 8.0,
-#                  VC = None,
-#                  catalog_file = None,
-#                  catalog_data = None):
-#
-#         # self.potential_galaxy_hosts = [Galaxy(r,dr,w) for r,dr,w in zip(redshifts,dredshifts,weights)]
-#         self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[ramin, ramax], 'DEC':[decmin, decmax], 'z':[zmin, zmax]}, catalog_data, catalog_file)
-#         self.n_hosts                = len(self.potential_galaxy_hosts)
-#         self.ID                     = ID
-#         self.dl                     = dl
-#         self.sigma                  = sigma
-#         self.dmax                   = (self.dl+3.0*self.sigma)
-#         self.dmin                   = self.dl-3.0*self.sigma
-#         self.zmin                   = zmin
-#         self.zmax                   = zmax
-#         self.snr                    = snr
-#         self.VC                     = VC
-#         self.z_true                 = z_true
-#         if self.dmin < 0.0: self.dmin = 0.0
 
 class Event_test(object):
     """
@@ -100,24 +64,28 @@ class Event_test(object):
         return app
 
 
-def read_TEST_event(skypos = None, errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None):
+def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None):
     '''
     Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
     '''
-    all_files   = os.listdir(input_folder)
-    events_list = [f for f in all_files if 'catalog' in f]
+    all_files    = os.listdir(input_folder)
+    events_list  = [f for f in all_files if 'event' in f]
+    catalog_list = [f for f in all_files if 'catalog' in f]
+    events_list  = events_list.sort()
+    catalog_list = catalog_list.sort()
     events = []
 
     if N_ev_max is not None:
         events_list = events_list[:N_ev_max:]
 
     i = 0
-    for ev in events_list:
-        catalog_file        = input_folder+"/"+ev
-        event_file          = open(catalog_file,"r")
-        data                = event_file.readline().split(' ')
-        events.append(Event_test(i, errors['z'], errors['RA'], errors['DEC'], float(data[10]), np.deg2rad(float(data[6])), np.deg2rad(float(data[7])), omega, catalog_file, catalog_data))
+    for ev, cat in zip(events_list, catalog_list):
+        catalog_file        = input_folder+"/"+cat
+        event_file          = open(input_folder+'/'+ev,"r")
+        data                = np.genfromtxt(event_file, names = True)
+        events.append(Event_test(i, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, catalog_file, catalog_data))
         event_file.close()
+        catalog_file.close()
         i += 1
 
 
