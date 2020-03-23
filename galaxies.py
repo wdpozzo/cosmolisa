@@ -73,7 +73,7 @@ def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
 def isinbound(galaxy, limits):
     if (limits['RA'][0] <= np.deg2rad(galaxy['RA']) <= limits['RA'][1]) and (limits['DEC'][0] <= np.deg2rad(galaxy['DEC']) <= limits['DEC'][1]) and (limits['z'][0] <= galaxy['z'] <= limits['z'][1]) :
         return True
-    return True
+    return False
 
 
 def catalog_weight(catalog, weight = 'uniform'):

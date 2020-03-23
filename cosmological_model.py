@@ -131,7 +131,7 @@ class CosmologicalModel(cpnest.model.Model):
         #                         em_selection = self.em_selection, zmin = self.bounds[2+j][0], zmax = self.bounds[2+j][1]) for j,e in enumerate(self.data)])
         logL = 0.
         for e in self.data:
-            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., Ntot = 1, zmin = e.zmin, zmax = e.zmax)
+            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., Ntot = e.n_hosts, zmin = e.zmin, zmax = e.zmax)
         self.O.DestroyCosmologicalParameters()
 
         return logL

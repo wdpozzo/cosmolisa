@@ -8,6 +8,23 @@ import lal
 def gaussian(x,x0,sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
 
+def LumDist(z, omega):
+    return 3e3*(z + (1-omega.om +omega.ol)*z**2/2.)/omega.h
+
+def dLumDist(z, omega):
+    return 3e3*(1+(1-omega.om+omega.ol)*z)/omega.h
+
+def RedshiftCalculation(LD, omega, zinit=0.3, limit = 0.001):
+    '''
+    Redshift given a certain luminosity, calculated by recursion.
+    Limit is the less significative digit.
+    '''
+    LD_test = LumDist(zinit, omega)
+    if abs(LD-LD_test) < limit :
+        return zinit
+    znew = zinit - (LD_test - LD)/dLumDist(zinit,omega)
+    return RedshiftCalculation(LD, omega, zinit = znew)
+
 
 class Event_test(object):
     """
@@ -17,39 +34,39 @@ class Event_test(object):
     """
     def __init__(self,
                  ID,
-                 dz,
+                 dLD,
                  dRA,
                  dDEC,
-                 z_true,
+                 LD_true,
                  RA_true,
                  DEC_true,
                  omega,
                  catalog_file = None,
                  catalog_data = None):
 
-        self.ramin   = RA_true-3*dRA
-        self.ramax   = RA_true+3*dRA
-        self.decmin  = DEC_true-3*dDEC
-        self.decmax  = DEC_true+3*dDEC
-        self.zmin    = z_true-3*(z_true*0.1)
-        self.zmax    = z_true+3*(z_true*0.1)
 
         if catalog_file is None and catalog_data is None:
             raise SystemExit('No catalog provided')
 
-        catalog = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, catalog_data, catalog_file)
-
-        self.potential_galaxy_hosts = catalog
-        self.n_hosts                = len(self.potential_galaxy_hosts)
         self.ID                     = ID
-        self.LD                     = lal.LuminosityDistance(omega, z_true)
-        self.dLD                    = self.LD-lal.LuminosityDistance(omega, z_true-dz)
-        self.dz                     = (z_true*0.1)
+        self.LD                     = LD_true
+        self.dLD                    = dLD
+        self.z_true                 = RedshiftCalculation(self.LD, omega)
+        self.dz                     = self.z_true-RedshiftCalculation(self.LD-self.dLD, omega)
         self.dRA                    = dRA
         self.dDEC                   = dDEC
-        self.z_true                 = z_true
         self.RA_true                = RA_true
         self.DEC_true               = DEC_true
+
+        self.ramin   = RA_true-3*dRA
+        self.ramax   = RA_true+3*dRA
+        self.decmin  = DEC_true-3*dDEC
+        self.decmax  = DEC_true+3*dDEC
+        self.zmin    = self.z_true-3*self.dz
+        self.zmax    = self.z_true+3*self.dz
+
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, catalog_data, catalog_file)
+        self.n_hosts                = len(self.potential_galaxy_hosts)
 
     def post_LD(self, LD):
         app = gaussian(LD, self.LD, self.dLD)
@@ -71,12 +88,13 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
     all_files    = os.listdir(input_folder)
     events_list  = [f for f in all_files if 'event' in f]
     catalog_list = [f for f in all_files if 'catalog' in f]
-    events_list  = events_list.sort()
-    catalog_list = catalog_list.sort()
+    events_list.sort()
+    catalog_list.sort()
     events = []
 
     if N_ev_max is not None:
         events_list = events_list[:N_ev_max:]
+
 
     i = 0
     for ev, cat in zip(events_list, catalog_list):
@@ -85,7 +103,6 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
         data                = np.genfromtxt(event_file, names = True)
         events.append(Event_test(i, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, catalog_file, catalog_data))
         event_file.close()
-        catalog_file.close()
         i += 1
 
 

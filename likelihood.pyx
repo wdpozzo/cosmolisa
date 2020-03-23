@@ -73,9 +73,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
 
     logL = -np.inf
     for i in range(N):
-
         logL = log_add(addends[i], logL)
-
     for i in range(M):
         if np.isfinite(dark_term):
             logL = log_add(dark_term, logL)
