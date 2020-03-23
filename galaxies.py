@@ -11,7 +11,7 @@ class Galaxy(object):
     and weight determined by its angular position
     relative to the LISA posterior
     """
-    def __init__(self, ID, right_ascension, declination, redshift, is_detected, abs_magnitude=None, app_magnitude=None, weight=None):
+    def __init__(self, ID, right_ascension, declination, redshift, is_detected, rel_z_error = 0.1, abs_magnitude=None, app_magnitude=None, weight=None):
 
         self.ID             = ID
         self.RA             = right_ascension
@@ -19,7 +19,7 @@ class Galaxy(object):
         self.abs_magnitude  = abs_magnitude
         self.app_magnitude  = app_magnitude
         self.z              = redshift
-        self.dz             = redshift*0.1
+        self.dz             = redshift*rel_z_error
         self.weight         = weight
         self.is_detected    = is_detected # Boolean value
 
