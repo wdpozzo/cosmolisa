@@ -13,36 +13,33 @@ def get_pdf(CPjob, label):
     pdf     = gaussian_kde(samples)
     return pdf
 
-def find16(pdf):
+def findpercent(pdf, percent):
     x = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
     for ext in x:
-        if pdf.integrate_box(x[0], ext) > 0.16:
+        if pdf.integrate_box(x[0], ext) > percent:
             return ext
 
-def find84(pdf):
-    x = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
-    for ext in x:
-        if pdf.integrate_box(x[0], ext) > 0.84:
-            return ext
-
-def median65(pdf):
-    up = find84(pdf)
-    down = find16(pdf)
+def sigma(pdf):
+    up = findpercent(pdf, 0.16)
+    down = findpercent(pdf, 0.84)
     sigma = (up-down)/2.
-    median = down+sigma
-    return median, sigma
+    return sigma
 
 def plotting(pdf, label, directory = './'):
 
-    median, sigma = median65(pdf)
-    x  = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
+    median = findpercent(pdf, 0.50)
+    sigma  = sigma(pdf)
+    # x  = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
+    x  = np.linspace(median-4*sigma, median+4*sigma, 1000)
     px = pdf(x)
     plt.figure()
-    plt.plot(x, px)
+    plt.plot(x, px, c = 'g')
     plt.suptitle(label+'=%.3f$\\pm$%.3f' %(median, sigma))
     plt.axvline(median, ls = '--', c = 'g')
-    plt.axvline(find16(pdf), ls = '--', c = 'g')
-    plt.axvline(find84(pdf), ls = '--', c = 'g')
+    plt.axvline(findpercent(pdf, 0.16), ls = '--', linewidth = 1, c = 'g')
+    plt.axvline(findpercent(pdf, 0.84), ls = '--', linewidth = 1, c = 'g')
+    plt.axvline(findpercent(pdf, 0.05), ls = ':', linewidth = 1, c = 'g')
+    plt.axvline(findpercent(pdf, 0.95), ls = ':', linewidth = 1, c = 'g')
     plt.xlabel(label)
     plt.ylabel('p('+label+')')
     plt.savefig(directory+'/'+label+'.pdf')
