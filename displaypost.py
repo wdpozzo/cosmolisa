@@ -25,7 +25,7 @@ def calc_sigma(pdf):
     sigma = (up-down)/2.
     return sigma
 
-def plotting(pdf, label, directory = './'):
+def plotting(pdf, label, inj_val = None, directory = './'):
 
     median = findpercent(pdf, 0.50)
     sigma  = calc_sigma(pdf)
@@ -40,11 +40,13 @@ def plotting(pdf, label, directory = './'):
     plt.axvline(findpercent(pdf, 0.84), ls = '--', linewidth = 1, c = 'g')
     plt.axvline(findpercent(pdf, 0.05), ls = ':', linewidth = 1, c = 'g')
     plt.axvline(findpercent(pdf, 0.95), ls = ':', linewidth = 1, c = 'g')
+    if inj_val is not None:
+        plt.axvline(inj_val, c = 'r')
     plt.xlabel(label)
     plt.ylabel('p('+label+')')
     plt.savefig(directory+'/'+label+'.pdf')
 
-def plot_post(CPjob, label, out_dir = './'):
+def plot_post(CPjob, label, out_dir = './', inj_val = None):
 
     pdf = get_pdf(CPjob, label)
-    plotting(pdf, label, out_dir)
+    plotting(pdf, label, inj_val, out_dir)
