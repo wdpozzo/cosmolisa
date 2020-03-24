@@ -19,7 +19,7 @@ def findpercent(pdf, percent):
         if pdf.integrate_box(x[0], ext) > percent:
             return ext
 
-def sigma(pdf):
+def calc_sigma(pdf):
     up = findpercent(pdf, 0.16)
     down = findpercent(pdf, 0.84)
     sigma = (up-down)/2.
@@ -28,7 +28,7 @@ def sigma(pdf):
 def plotting(pdf, label, directory = './'):
 
     median = findpercent(pdf, 0.50)
-    sigma  = sigma(pdf)
+    sigma  = calc_sigma(pdf)
     # x  = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
     x  = np.linspace(median-4*sigma, median+4*sigma, 1000)
     px = pdf(x)
