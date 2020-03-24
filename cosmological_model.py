@@ -252,4 +252,4 @@ if __name__=='__main__':
                         filename=os.path.join(output,'joint_posterior.pdf'))
 
     fig.savefig(os.path.join(output,'joint_posterior.pdf'), bbox_inches='tight')
-    plot_post(work, 'h', 0.7, output)
+    plot_post(work, 'h', output, 0.7)
