@@ -66,7 +66,7 @@ class Event_test(object):
         self.zmin    = self.z_true-3*self.dz
         self.zmax    = self.z_true+3*self.dz
 
-        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, rel_z_error = rel_z_error, catalog_data, catalog_file)
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, rel_z_error = rel_z_error, catalog_data = catalog_data, catalog_file = catalog_file)
         self.n_hosts                = len(self.potential_galaxy_hosts)
 
     def post_LD(self, LD):
