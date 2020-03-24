@@ -41,6 +41,7 @@ class Event_test(object):
                  RA_true,
                  DEC_true,
                  omega,
+                 rel_z_error  = 0.1,
                  catalog_file = None,
                  catalog_data = None):
 
@@ -65,7 +66,7 @@ class Event_test(object):
         self.zmin    = self.z_true-3*self.dz
         self.zmax    = self.z_true+3*self.dz
 
-        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, catalog_data, catalog_file)
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, rel_z_error = rel_z_error, catalog_data, catalog_file)
         self.n_hosts                = len(self.potential_galaxy_hosts)
 
     def post_LD(self, LD):
@@ -81,7 +82,7 @@ class Event_test(object):
         return app
 
 
-def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None):
+def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None, rel_z_error = 0.1):
     '''
     Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
     '''
@@ -101,7 +102,7 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
         catalog_file        = input_folder+"/"+cat
         event_file          = open(input_folder+'/'+ev,"r")
         data                = np.genfromtxt(event_file, names = True)
-        events.append(Event_test(i, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, catalog_file, catalog_data))
+        events.append(Event_test(i, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
         event_file.close()
         i += 1
 

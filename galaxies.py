@@ -26,7 +26,7 @@ class Galaxy(object):
 
 
 
-def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
+def read_galaxy_catalog(limits, rel_z_error = 0.1, catalog_data = None, catalog_file = None):
     '''
     The catalog can be passed either as a path or, if precedently loaded, as np.array.
     In case both data and path are provided, already loaded data are used.
@@ -63,7 +63,7 @@ def read_galaxy_catalog(limits, catalog_data = None, catalog_file = None):
     for i in range(catalog_data.shape[0]):
         # Check the entries: B-band mag (abs and apparent), redshift and proximity to GW position posteriors
         if (~np.isnan(catalog_data['B'][i])) and (~np.isnan(catalog_data['B_abs'][i])) and (catalog_data['flag2'][i] == 1 or catalog_data['flag2'][i] == 3) and isinbound(catalog_data[i], limits):
-            catalog.append(Galaxy(i, np.deg2rad(catalog_data['RA'][i]), np.deg2rad(catalog_data['DEC'][i]), catalog_data['z'][i], True, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
+            catalog.append(Galaxy(i, np.deg2rad(catalog_data['RA'][i]), np.deg2rad(catalog_data['DEC'][i]), catalog_data['z'][i], True, rel_z_error = rel_z_error, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
             # Warning: GLADE stores no information on dz. 2B corrected.
 
     catalog = catalog_weight(catalog) # Implementare meglio la selezione del peso delle galassie.
