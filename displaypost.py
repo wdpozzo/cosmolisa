@@ -11,35 +11,23 @@ def get_pdf(CPjob, label):
     '''
     samples = CPjob.get_posterior_samples()[label]
     pdf     = gaussian_kde(samples)
-    return pdf
+    return pdf, samples
 
-def findpercent(pdf, percent):
-    x = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
-    for ext in x:
-        if pdf.integrate_box(x[0], ext) > percent:
-            return ext
+def plotting(pdf, samples, label, inj_val = None, directory = './'):
 
-def calc_sigma(pdf):
-    up = findpercent(pdf, 0.16)
-    down = findpercent(pdf, 0.84)
-    sigma = (up-down)/2.
-    return sigma
-
-def plotting(pdf, label, inj_val = None, directory = './'):
-
-    median = findpercent(pdf, 0.50)
-    sigma  = calc_sigma(pdf)
+    median = np.percentile(samples, 50, axis = 0)
+    sigma  = median - np.percentile(samples, 16, axis = 0)
     # x  = np.linspace(pdf.dataset.min(),pdf.dataset.max(),1000)
     x  = np.linspace(median-4*sigma, median+4*sigma, 1000)
     px = pdf(x)
     plt.figure()
     plt.plot(x, px, c = 'g')
-    plt.suptitle(label+'=%.3f$\\pm$%.3f' %(median, sigma))
+    plt.suptitle(label+'$=%.3f_{-%.3f}^{+%.3f}$' % (median, median-np.percentile(samples, 5, axis = 0), np.percentile(samples, 95, axis = 0)-median))
     plt.axvline(median, ls = '--', c = 'g')
-    plt.axvline(findpercent(pdf, 0.16), ls = '--', linewidth = 1, c = 'g')
-    plt.axvline(findpercent(pdf, 0.84), ls = '--', linewidth = 1, c = 'g')
-    plt.axvline(findpercent(pdf, 0.05), ls = ':', linewidth = 1, c = 'g')
-    plt.axvline(findpercent(pdf, 0.95), ls = ':', linewidth = 1, c = 'g')
+    plt.axvline( np.percentile(samples, 16, axis = 0), ls = '--', linewidth = 1, c = 'k')
+    plt.axvline( np.percentile(samples, 84, axis = 0), ls = '--', linewidth = 1, c = 'k')
+    plt.axvline( np.percentile(samples, 5, axis = 0), ls = ':', linewidth = 1, c = 'k')
+    plt.axvline( np.percentile(samples, 95, axis = 0), ls = ':', linewidth = 1, c = 'k')
     if inj_val is not None:
         plt.axvline(inj_val, c = 'r')
     plt.xlabel(label)
@@ -48,5 +36,5 @@ def plotting(pdf, label, inj_val = None, directory = './'):
 
 def plot_post(CPjob, label, out_dir = './', inj_val = None):
 
-    pdf = get_pdf(CPjob, label)
-    plotting(pdf, label, inj_val, out_dir)
+    pdf, samples = get_pdf(CPjob, label)
+    plotting(pdf, samples, label, inj_val, out_dir)
