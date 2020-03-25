@@ -67,7 +67,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
     sum = p_no_post.sum()
     for i in range(N):
         addends[i] = sum - p_no_post[i] + p_with_post[i] + M*p_no_post_dark
-    dark_term = sum + M*p_with_post_dark
+    dark_term = sum + (M-1)*p_no_post_dark + p_with_post_dark
 
     # Manca da fare la somma finale
 
