@@ -59,6 +59,10 @@ class Event_test(object):
         self.RA_true                = RA_true
         self.DEC_true               = DEC_true
 
+        '''
+        ATTENZIONE: PER CLASSI NON-TEST È NECESSARIO RIPENSARE I BOUNDARIES
+        '''
+
         self.ramin   = RA_true-3*dRA
         self.ramax   = RA_true+3*dRA
         self.decmin  = DEC_true-3*dDEC
