@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 class options(object):
 
-    def __init__(self, event_class, event, data, out_dir = None,model = 'LambdaCDM', nevmax = None):
+    def __init__(self, event_class, event, data, out_dir = None, model = 'LambdaCDM', nevmax = None):
 
         self.event_class = event_class
         self.out_dir     = out_dir
@@ -37,13 +37,13 @@ if __name__ == '__main__':
 
     Ntot_events = 10
 
-    for j in range(Ntot_events-7):
-        i = j+7
-        opts = options('TEST', i, './MDC', nevmax = i+1)
+    for i in range(Ntot_events):
+        opts = options('TEST', i, './MDC', nevmax = i)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
-        omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,0,0,0) # True cosmology
-        events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax)
+        omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0,0) # True cosmology
+        rel_z_error = 0.1 # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
+        events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
 
         model = opts.model
         output = opts.data+"/MULTIPLEEVENT_1%03d/"%(opts.event+1)

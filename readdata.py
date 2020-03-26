@@ -98,17 +98,14 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
     events = []
 
     if N_ev_max is not None:
-        events_list = events_list[:N_ev_max:]
+        events_list = events_list[N_ev_max:N_ev_max+1:]
 
-
-    i = 0
     for ev, cat in zip(events_list, catalog_list):
         catalog_file        = input_folder+"/"+cat
         event_file          = open(input_folder+'/'+ev,"r")
         data                = np.genfromtxt(event_file, names = True)
-        events.append(Event_test(i, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
+        events.append(Event_test(N_ev_max, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
         event_file.close()
-        i += 1
 
 
 

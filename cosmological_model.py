@@ -165,7 +165,7 @@ if __name__=='__main__':
 
     if opts.event_class == 'TEST':
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
-        omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,0,0,0) # True cosmology
+        omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0.,0.) # True cosmology
         rel_z_error = 0.1 # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
 
