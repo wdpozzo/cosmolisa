@@ -4,85 +4,8 @@ cimport numpy as np
 from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh
 cimport cython
 
-cdef extern from "lal/LALCosmologyCalculator.h" nogil:
-    ctypedef struct LALCosmologicalParameters:
-        double h;
-        double om;
-        double ol;
-        double ok;
-        double w0;
-        double w1;
-        double w2;
-    
-    cdef double XLALLuminosityDistance(
-            LALCosmologicalParameters *omega, 
-            double z)
-
-    cdef double XLALAngularDistance(
-            LALCosmologicalParameters *omega, 
-            double z)
-
-    cdef double XLALComovingLOSDistance(
-            LALCosmologicalParameters *omega, 
-            double z)
-
-    cdef double XLALComovingTransverseDistance(
-            LALCosmologicalParameters *omega, 
-            double z)
-
-    cdef double XLALHubbleDistance(
-            LALCosmologicalParameters *omega
-            )
-
-    cdef double XLALHubbleParameter(double z,
-            void *omega
-            )
-
-    cdef double XLALIntegrateHubbleParameter(LALCosmologicalParameters *omega, double z)
-
-    cdef double XLALUniformComovingVolumeDistribution(
-            LALCosmologicalParameters *omega, 
-            double z,
-            double zmax)
-
-    cdef double XLALUniformComovingVolumeDensity(
-            double z,
-            void *omega)
-
-    cdef double XLALIntegrateComovingVolumeDensity(LALCosmologicalParameters *omega, double z)
-
-    cdef double XLALIntegrateComovingVolume(LALCosmologicalParameters *omega, double z)
-
-    cdef double XLALComovingVolumeElement(double z, void *omega)
-
-    cdef double XLALComovingVolume(LALCosmologicalParameters *omega, double z)
-
-    cdef LALCosmologicalParameters *XLALCreateCosmologicalParameters(double h, double om, double ol, double w0, double w1, double w2)
-
-    cdef void XLALDestroyCosmologicalParameters(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetHubbleConstant(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetOmegaMatter(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetOmegaLambda(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetOmegaK(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetW0(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetW1(LALCosmologicalParameters *omega)
-
-    cdef double XLALGetW2(LALCosmologicalParameters *omega)
-
-
 cdef class CosmologicalParameters:
-    cdef LALCosmologicalParameters* __LALCosmologicalParameters
-    cdef public double h
-    cdef public double om
-    cdef public double ol
-    cdef public double w0
-    cdef public double w1
+
     def __cinit__(self,double h, double om, double ol, double w0, double w1):
         self.h = h
         self.om = om
