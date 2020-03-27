@@ -95,10 +95,12 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
     catalog_list = [f for f in all_files if 'catalog' in f]
     events_list.sort()
     catalog_list.sort()
+    print(catalog_list)
     events = []
 
     if N_ev_max is not None:
         events_list = events_list[N_ev_max:N_ev_max+1:]
+        catalog_list = catalog_list[N_ev_max:N_ev_max+1:]
 
     for ev, cat in zip(events_list, catalog_list):
         catalog_file        = input_folder+"/"+cat
