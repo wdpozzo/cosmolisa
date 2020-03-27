@@ -3,28 +3,7 @@
 
 import numpy as np
 import pickle
-
-class Galaxy(object):
-    """
-    Galaxy class:
-    initialise a galaxy defined by its redshift, redshift error
-    and weight determined by its angular position
-    relative to the LISA posterior
-    """
-    def __init__(self, ID, right_ascension, declination, redshift, is_detected, rel_z_error = 0.1, abs_magnitude=None, app_magnitude=None, weight=None):
-
-        self.ID             = ID
-        self.RA             = right_ascension
-        self.DEC            = declination
-        self.abs_magnitude  = abs_magnitude
-        self.app_magnitude  = app_magnitude
-        self.z              = redshift
-        self.dz             = redshift*rel_z_error
-        self.weight         = weight
-        self.is_detected    = is_detected # Boolean value
-
-
-
+from galaxy import Galaxy
 
 def read_galaxy_catalog(limits, rel_z_error = 0.1, catalog_data = None, catalog_file = None):
     '''

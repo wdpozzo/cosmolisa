@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 cimport numpy as np
 from numpy cimport ndarray
-from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,pow,log10
+from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,pow,log10,INFINITY
 cimport cython
 from scipy.integrate import quad
 from scipy.special.cython_special cimport erfc, hyp2f1
@@ -10,15 +10,16 @@ from scipy.special import logsumexp, erf
 from scipy.optimize import newton
 from schechter import *
 from scipy.integrate import quad
-from galaxies import *
+from galaxy cimport Galaxy
 from cosmology cimport CosmologicalParameters
 
 cdef inline double log_add(double x, double y): return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 cdef inline double linear_density(double x, double a, double b): return a+log(x)*b
 
-@cython.cdivision(True)
 @cython.boundscheck(False)
-
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
 cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalParameters omega, double m_th, int Ntot, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
     """
     Likelihood function for a single GW event.
@@ -42,13 +43,11 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
     cdef double logL_galaxy
     cdef double dl
     cdef double score_z, sigma_z
-    cdef double logL_sum = -np.inf
+    cdef double logL_sum = -INFINITY
     cdef double logL_prod = 0
     cdef double p_no_post_dark, p_with_post_dark
 
-    cdef object mockgalaxy, gal
-
-    mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1./Ntot)
+    cdef Galaxy mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1./Ntot)
 
     cdef np.ndarray[double, ndim=1, mode="c"] p_with_post = np.zeros(N, dtype=np.float64)
     cdef double[::1] p_with_post_view = p_with_post
@@ -56,11 +55,10 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
     cdef double[::1] p_no_post_view = p_no_post
     # Attenzione: non sono ancora stati sistemati i prior sulle posizioni per la dark galaxy
     for i in range(N):
-        gal = hosts[i]
         # Voglio calcolare, per ogni galassia, le due
         # quantità rilevanti descritte in CosmoInfer.
-        p_no_post_view[i]   = ComputeLogLhNoPost(gal, omega, zmin, zmax)
-        p_with_post_view[i] = ComputeLogLhWithPost(gal, event, omega, zmin, zmax)
+        p_no_post_view[i]   = ComputeLogLhNoPost(hosts[i], omega, zmin, zmax)
+        p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, zmin, zmax)
     # Calcolo le likelihood anche per una singola dark galaxy
     p_no_post_dark   = ComputeLogLhNoPost(mockgalaxy, omega, zmin, zmax)
     p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax)
@@ -76,7 +74,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
 
     # Manca da fare la somma finale
 
-    cdef double logL = -np.inf
+    cdef double logL = -INFINITY
     for i in range(N):
         logL = log_add(addends_view[i], logL)
     
@@ -104,7 +102,11 @@ cdef inline double gaussian(double x, double x0, double sigma):
 cdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
     return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*omega.ComovingVolumeElement(z)/CoVol
 
-cdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double ComputeLogLhWithPost(Galaxy gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
@@ -129,7 +131,7 @@ cdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameter
     
     if gal.is_detected:
         if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
-            return -np.inf
+            return -INFINITY
         else:
             mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
             for i in range(n):
@@ -146,7 +148,11 @@ cdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameter
 
         return log(dz*I*gal.weight)
 
-cdef double ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double ComputeLogLhNoPost(Galaxy gal, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Calcolo probabilità di osservare la galassia considerata.
     Si considera, nel caso di galassia osservata, la densità di probabilità dovuta alla misura (gaussiane con errore da determinarsi)
@@ -175,7 +181,7 @@ cdef double ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double 
 
     if gal.is_detected:
         if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
-            return -np.inf
+            return -INFINITY
         else:
             return log(myERF(m_th))
 

@@ -64,3 +64,16 @@ setup(
       ext_modules = cythonize(ext_modules),
       include_dirs=[numpy.get_include(),lal_includes,"./"]
       )
+
+ext_modules=[
+             Extension("galaxy",
+                       sources=["galaxy.pyx"],
+                       libraries=["m"], # Unix-like specific
+                       include_dirs=[numpy.get_include(),"./"]
+                       )
+             ]
+setup(
+      name = "galaxy",
+      ext_modules = cythonize(ext_modules),
+      include_dirs=[numpy.get_include(),"./"]
+      )
