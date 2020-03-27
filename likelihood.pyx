@@ -12,6 +12,7 @@ from schechter import *
 from lal import LuminosityDistance, ComovingVolumeElement, ComovingVolume
 from scipy.integrate import quad
 from galaxies import *
+from cosmology cimport CosmologicalParameters
 
 cdef inline double log_add(double x, double y): return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 cdef inline double linear_density(double x, double a, double b): return a+log(x)*b
@@ -19,7 +20,7 @@ cdef inline double linear_density(double x, double a, double b): return a+log(x)
 @cython.cdivision(True)
 @cython.boundscheck(False)
 
-cpdef double logLikelihood_single_event(list hosts, object event, object omega, double m_th, int Ntot, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
+cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalParameters omega, double m_th, int Ntot, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
@@ -86,7 +87,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
     
     return logL
 
-cpdef double absM(double z, double m, object omega):
+cpdef double absM(double z, double m, CosmologicalParameters omega):
     '''
     Magnitudine assoluta di soglia
     '''
@@ -103,10 +104,10 @@ cpdef double gaussian(double x, double x0, double sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
 
 
-cpdef double Integrand_dark(double z, object omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
+cpdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
     return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*omega.ComovingVolumeElement(z)/CoVol
 
-cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+cpdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
@@ -145,7 +146,7 @@ cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double
 
 
 
-cpdef object ComputeLogLhNoPost(object gal, object omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+cpdef object ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Calcolo probabilità di osservare la galassia considerata.
     Si considera, nel caso di galassia osservata, la densità di probabilità dovuta alla misura (gaussiane con errore da determinarsi)

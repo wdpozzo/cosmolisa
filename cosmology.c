@@ -1117,9 +1117,9 @@ typedef npy_clongdouble __pyx_t_5numpy_clongdouble_t;
  */
 typedef npy_cdouble __pyx_t_5numpy_complex_t;
 
-/* "cosmology.pxd":71
- * 
+/* "cosmology.pxd":72
  *     cdef double XLALGetW2(LALCosmologicalParameters *omega)
+ * 
  * cdef class CosmologicalParameters:             # <<<<<<<<<<<<<<
  *     cdef LALCosmologicalParameters* __LALCosmologicalParameters
  *     cdef public double h
@@ -3959,7 +3959,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_26DestroyCosmologi
   return __pyx_r;
 }
 
-/* "cosmology.pxd":73
+/* "cosmology.pxd":74
  * cdef class CosmologicalParameters:
  *     cdef LALCosmologicalParameters* __LALCosmologicalParameters
  *     cdef public double h             # <<<<<<<<<<<<<<
@@ -3986,7 +3986,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_1h___get__(struct 
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 73, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->h); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 74, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4021,7 +4021,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_1h_2__set__(struct __pyx
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("__set__", 0);
-  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 73, __pyx_L1_error)
+  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 74, __pyx_L1_error)
   __pyx_v_self->h = __pyx_t_1;
 
   /* function exit code */
@@ -4035,7 +4035,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_1h_2__set__(struct __pyx
   return __pyx_r;
 }
 
-/* "cosmology.pxd":74
+/* "cosmology.pxd":75
  *     cdef LALCosmologicalParameters* __LALCosmologicalParameters
  *     cdef public double h
  *     cdef public double om             # <<<<<<<<<<<<<<
@@ -4062,7 +4062,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_2om___get__(struct
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->om); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 74, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->om); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4097,7 +4097,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2om_2__set__(struct __py
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("__set__", 0);
-  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 74, __pyx_L1_error)
+  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 75, __pyx_L1_error)
   __pyx_v_self->om = __pyx_t_1;
 
   /* function exit code */
@@ -4111,7 +4111,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2om_2__set__(struct __py
   return __pyx_r;
 }
 
-/* "cosmology.pxd":75
+/* "cosmology.pxd":76
  *     cdef public double h
  *     cdef public double om
  *     cdef public double ol             # <<<<<<<<<<<<<<
@@ -4138,7 +4138,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_2ol___get__(struct
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->ol); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 75, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->ol); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 76, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4173,7 +4173,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2ol_2__set__(struct __py
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("__set__", 0);
-  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 75, __pyx_L1_error)
+  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 76, __pyx_L1_error)
   __pyx_v_self->ol = __pyx_t_1;
 
   /* function exit code */
@@ -4187,7 +4187,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2ol_2__set__(struct __py
   return __pyx_r;
 }
 
-/* "cosmology.pxd":76
+/* "cosmology.pxd":77
  *     cdef public double om
  *     cdef public double ol
  *     cdef public double w0             # <<<<<<<<<<<<<<
@@ -4214,7 +4214,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_2w0___get__(struct
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->w0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 76, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->w0); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 77, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4249,7 +4249,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2w0_2__set__(struct __py
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("__set__", 0);
-  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 76, __pyx_L1_error)
+  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 77, __pyx_L1_error)
   __pyx_v_self->w0 = __pyx_t_1;
 
   /* function exit code */
@@ -4263,7 +4263,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2w0_2__set__(struct __py
   return __pyx_r;
 }
 
-/* "cosmology.pxd":77
+/* "cosmology.pxd":78
  *     cdef public double ol
  *     cdef public double w0
  *     cdef public double w1             # <<<<<<<<<<<<<<
@@ -4290,7 +4290,7 @@ static PyObject *__pyx_pf_9cosmology_22CosmologicalParameters_2w1___get__(struct
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__get__", 0);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->w1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 77, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->w1); if (unlikely(!__pyx_t_1)) __PYX_ERR(2, 78, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -4325,7 +4325,7 @@ static int __pyx_pf_9cosmology_22CosmologicalParameters_2w1_2__set__(struct __py
   __Pyx_RefNannyDeclarations
   double __pyx_t_1;
   __Pyx_RefNannySetupContext("__set__", 0);
-  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 77, __pyx_L1_error)
+  __pyx_t_1 = __pyx_PyFloat_AsDouble(__pyx_v_value); if (unlikely((__pyx_t_1 == (double)-1) && PyErr_Occurred())) __PYX_ERR(2, 78, __pyx_L1_error)
   __pyx_v_self->w1 = __pyx_t_1;
 
   /* function exit code */

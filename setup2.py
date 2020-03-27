@@ -40,14 +40,15 @@ setup(
 ext_modules=[
              Extension("likelihood",
                        sources=["likelihood.pyx"],
-                       libraries=["m"], # Unix-like specific
-                       include_dirs=[numpy.get_include()]
+                       libraries=["m","lal"], # Unix-like specific
+                       library_dirs = [lal_libs],
+                       include_dirs=[numpy.get_include(),lal_includes,"./"]
                        )
              ]
 setup(
       name = "likelihood",
       ext_modules = cythonize(ext_modules),
-      include_dirs=[numpy.get_include()]
+      include_dirs=[numpy.get_include(),lal_includes,"./"]
       )
 
 ext_modules=[
