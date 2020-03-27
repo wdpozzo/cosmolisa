@@ -35,10 +35,13 @@ class options(object):
 
 if __name__ == '__main__':
 
-    Ntot_events = 10
+    path_events = './pluribus'
+
+    all_files   = os.listdir(path_events)
+    Ntot_events = len([f for f in all_files if 'event' in f])
 
     for i in range(Ntot_events):
-        opts = options('TEST', i, './MDC', nevmax = i)
+        opts = options('TEST', i, path_events, nevmax = i)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0,0) # True cosmology
@@ -46,7 +49,7 @@ if __name__ == '__main__':
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
 
         model = opts.model
-        output = opts.data+"/MULTIPLEEVENT_1%03d/"%(opts.event+1)
+        output = opts.data+"/pluribus_1%03d/"%(opts.event+1)
 
         print('Working on run {0} of {1}'.format(i+1, Ntot_events))
 
