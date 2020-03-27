@@ -5,8 +5,8 @@ from numpy cimport ndarray
 from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,pow,log10,INFINITY
 cimport cython
 from scipy.integrate import quad
-from scipy.special.cython_special cimport erfc, hyp2f1
-from scipy.special import logsumexp, erf
+from scipy.special.cython_special cimport erf
+from scipy.special import logsumexp
 from scipy.optimize import newton
 from schechter import *
 from scipy.integrate import quad
@@ -90,13 +90,13 @@ cdef inline double absM(double z, double m, CosmologicalParameters omega):
     '''
     return m - 5.0*log10(1e5*omega.LuminosityDistance(z)) # promemoria: 10^5 è Mpc/10pc
 
-cdef inline double SchVar(double M, double Mstar):
+cdef inline double SchVar(double M, double Mstar) nogil:
     return pow(10,0.4*(Mstar-M))
 
-cpdef double myERF(double x):
+cdef double myERF(double x) nogil:
     return (1+erf(x))/2.
 
-cdef inline double gaussian(double x, double x0, double sigma):
+cdef inline double gaussian(double x, double x0, double sigma) nogil:
     return exp(-(x-x0)**2/(2*sigma**2))/(sigma*sqrt(2*M_PI))
 
 cdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
