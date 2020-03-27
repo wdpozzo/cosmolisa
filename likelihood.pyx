@@ -50,33 +50,40 @@ cpdef double logLikelihood_single_event(list hosts, object event, object omega, 
 
     mockgalaxy = Galaxy(-1, 0,0,0,False, weight = 1./Ntot)
 
-    p_with_post = np.zeros(N)
-    p_no_post   = np.zeros(N)
+    cdef np.ndarray[double, ndim=1, mode="c"] p_with_post = np.zeros(N, dtype=np.float64)
+    cdef double[::1] p_with_post_view = p_with_post
+    cdef np.ndarray[double, ndim=1, mode="c"] p_no_post = np.zeros(N, dtype=np.float64)
+    cdef double[::1] p_no_post_view = p_no_post
     # Attenzione: non sono ancora stati sistemati i prior sulle posizioni per la dark galaxy
     for i in range(N):
         gal = hosts[i]
         # Voglio calcolare, per ogni galassia, le due
         # quantità rilevanti descritte in CosmoInfer.
-        p_no_post[i]   = ComputeLogLhNoPost(gal, omega, zmin, zmax)
-        p_with_post[i] = ComputeLogLhWithPost(gal, event, omega, zmin, zmax)
+        p_no_post_view[i]   = ComputeLogLhNoPost(gal, omega, zmin, zmax)
+        p_with_post_view[i] = ComputeLogLhWithPost(gal, event, omega, zmin, zmax)
     # Calcolo le likelihood anche per una singola dark galaxy
     p_no_post_dark   = ComputeLogLhNoPost(mockgalaxy, omega, zmin, zmax)
     p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax)
     # Calcolo i termini che andranno sommati tra loro (logaritmi)
-    addends = np.zeros(N)
-    sum = p_no_post.sum()
+    cdef np.ndarray[double, ndim=1, mode="c"] addends = np.zeros(N, dtype=np.float64)
+    cdef double[::1] addends_view = addends
+    cdef double sum = np.sum(p_no_post)
+    
     for i in range(N):
-        addends[i] = sum - p_no_post[i] + p_with_post[i] + M*p_no_post_dark
-    dark_term = sum + (M-1)*p_no_post_dark + p_with_post_dark
+        addends_view[i] = sum - p_no_post_view[i] + p_with_post_view[i] + M*p_no_post_dark
+        
+    cdef double dark_term = sum + (M-1)*p_no_post_dark + p_with_post_dark
 
     # Manca da fare la somma finale
 
-    logL = -np.inf
+    cdef double logL = -np.inf
     for i in range(N):
-        logL = log_add(addends[i], logL)
-    for i in range(M):
-        if np.isfinite(dark_term):
+        logL = log_add(addends_view[i], logL)
+    
+    if np.isfinite(dark_term):
+        for i in range(M):
             logL = log_add(dark_term, logL)
+    
     return logL
 
 cpdef double absM(double z, double m, object omega):
@@ -85,18 +92,18 @@ cpdef double absM(double z, double m, object omega):
     '''
     return m - 5.0*np.log10(1e5*omega.LuminosityDistance(z)) # promemoria: 10^5 è Mpc/10pc
 
-cpdef double SchVar(M, Mstar):
+cpdef double SchVar(double M, double Mstar):
     return 10**(0.4*(Mstar-M))
 
 cpdef double myERF(double x):
     return (1+erf(x))/2.
 
 
-cpdef double gaussian(x,x0,sigma):
+cpdef double gaussian(double x, double x0, double sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
 
 
-cpdef double Integrand_dark(z, omega, alpha, Mstar, Mmin, Mmax, CoVol):
+cpdef double Integrand_dark(double z, object omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
     return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*omega.ComovingVolumeElement(z)/CoVol
 
 cpdef double ComputeLogLhWithPost(object gal, object event, object omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
