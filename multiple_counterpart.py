@@ -41,7 +41,6 @@ if __name__ == '__main__':
     Ntot_events = len([f for f in all_files if 'event' in f])
 
     for i in range(Ntot_events):
-        i=i+1
         opts = options('TEST', i, path_events, nevmax = i)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
@@ -50,7 +49,6 @@ if __name__ == '__main__':
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
         model = opts.model
         output = opts.data+"/pluribus_1%03d/"%(opts.event+1)
-        exit()
         print('Working on run {0} of {1}'.format(i+1, Ntot_events))
 
         C = CM.CosmologicalModel(model,
