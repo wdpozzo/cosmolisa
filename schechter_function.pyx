@@ -65,7 +65,7 @@ cdef class SchechterMagFunctionInternal:
         self.normalise()
         return self._evaluate(m)/self.norm
 
-cpdef SchechterMagFunction(mmin, mmax, h=0.7, band='B'):
+cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str band='B'):
     """
     Returns a Schechter magnitude function for a given set of parameters
 
@@ -82,12 +82,14 @@ cpdef SchechterMagFunction(mmin, mmax, h=0.7, band='B'):
     """
     if band == 'constant': # Perform incompleteness correction using B-band SF for constant luminosity weights
         band = 'B'
+    cdef double Mstar_obs, alpha
+    
     Mstar_obs, alpha = schechter_function_params[band]
-    Mstar = Mstar_obs + 5.*np.log10(h)
-    smf = SchechterMagFunctionInternal(Mstar, alpha, mmin, mmax)
+    cdef double Mstar = Mstar_obs + 5.*np.log10(h)
+    cdef object smf = SchechterMagFunctionInternal(Mstar, alpha, mmin, mmax)
     return smf.pdf, alpha, Mstar
 
-def M_Mobs(h, M_obs):
+cdef inline double M_Mobs(double h, double M_obs):
     """
     Given an observed absolute magnitude, returns absolute magnitude
     """

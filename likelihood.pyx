@@ -2,14 +2,13 @@ from __future__ import division
 import numpy as np
 cimport numpy as np
 from numpy cimport ndarray
-from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh
+from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,pow,log10
 cimport cython
 from scipy.integrate import quad
 from scipy.special.cython_special cimport erfc, hyp2f1
 from scipy.special import logsumexp, erf
 from scipy.optimize import newton
 from schechter import *
-from lal import LuminosityDistance, ComovingVolumeElement, ComovingVolume
 from scipy.integrate import quad
 from galaxies import *
 from cosmology cimport CosmologicalParameters
@@ -87,66 +86,67 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
     
     return logL
 
-cpdef double absM(double z, double m, CosmologicalParameters omega):
+cdef inline double absM(double z, double m, CosmologicalParameters omega):
     '''
     Magnitudine assoluta di soglia
     '''
-    return m - 5.0*np.log10(1e5*omega.LuminosityDistance(z)) # promemoria: 10^5 è Mpc/10pc
+    return m - 5.0*log10(1e5*omega.LuminosityDistance(z)) # promemoria: 10^5 è Mpc/10pc
 
-cpdef double SchVar(double M, double Mstar):
-    return 10**(0.4*(Mstar-M))
+cdef inline double SchVar(double M, double Mstar):
+    return pow(10,0.4*(Mstar-M))
 
 cpdef double myERF(double x):
     return (1+erf(x))/2.
 
+cdef inline double gaussian(double x, double x0, double sigma):
+    return exp(-(x-x0)**2/(2*sigma**2))/(sigma*sqrt(2*M_PI))
 
-cpdef double gaussian(double x, double x0, double sigma):
-    return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
-
-
-cpdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
+cdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha, double Mstar, double Mmin, double Mmax, double CoVol):
     return -(gammainc(alpha+2,SchVar(Mmax, Mstar))-gammainc(alpha+2,SchVar(Mmin, Mstar)))*omega.ComovingVolumeElement(z)/CoVol
 
-cpdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+cdef double ComputeLogLhWithPost(object gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
 
-    post_RA  = event.post_RA
-    post_DEC = event.post_DEC
-    post_LD  = event.post_LD
+    cdef unsigned int i, n = 1000
+    cdef double mag_int
+    cdef double LD_i
+    
+    cdef double I = 0.0
+    cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n, dtype = np.float64)
+    cdef double[::1] z_view = z
+    
+    cdef double dz = (zmax - zmin)/n
+    
+    cdef object post_RA  = event.post_RA
+    cdef object post_DEC = event.post_DEC
+    cdef object post_LD  = event.post_LD
 
+    cdef double CoVol
+    cdef object Schechter
+    cdef double alpha, Mstar, Mth
+    
     if gal.is_detected:
         if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
             return -np.inf
         else:
             mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
-            z = np.linspace(zmin, zmax, 1000)
-            dz = z[3]-z[2]
-            I = 0.
-            for i in range(len(z)):
-                LD_i = omega.LuminosityDistance(z[i])
-                I += dz*event.post_LD(LD_i)*gaussian(z[i], gal.z, gal.dz) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
-            return np.log(I*mag_int*gal.weight*event.post_RA(gal.RA)*event.post_DEC(gal.DEC))
+            for i in range(n):
+                LD_i = omega.LuminosityDistance(z_view[i])
+                I += event.post_LD(LD_i)*gaussian(z_view[i], gal.z, gal.dz) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
+            return log(dz*I*mag_int*gal.weight*event.post_RA(gal.RA)*event.post_DEC(gal.DEC))
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
-        z = np.linspace(zmin, zmax, 1000)
-        dz = z[3]-z[2]
         CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
-        I = np.zeros(len(z))
-        for i in range(len(z)):
-            LD_i = omega.LuminosityDistance(z[i])
-            Mth = absM(z[i], m_th, omega)
-            I[i] = post_LD(LD_i)*Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
-        Integral = 0.
-        for i in range(len(I)):
-            Integral += I[i]*dz
-        return np.log(Integral*gal.weight)
+        for i in range(n):
+            LD_i = omega.LuminosityDistance(z_view[i])
+            Mth = absM(z_view[i], m_th, omega)
+            I += post_LD(LD_i)*Integrand_dark(z_view[i], omega, alpha, Mstar, Mth, M_max, CoVol)
 
+        return log(dz*I*gal.weight)
 
-
-
-cpdef object ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+cdef double ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
     '''
     Calcolo probabilità di osservare la galassia considerata.
     Si considera, nel caso di galassia osservata, la densità di probabilità dovuta alla misura (gaussiane con errore da determinarsi)
@@ -157,6 +157,18 @@ cpdef object ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double
     Nota: Il prior in posizione per le galassie che non ho visto è 1/4pi (ovvero tutto il cielo) oppure una porzione corrispondente
     alla regione al 95%?
     '''
+    cdef unsigned int i, n = 1000
+    cdef double mag_int
+    cdef double LD_i
+    
+    cdef double I = 0.0
+    cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n, dtype = np.float64)
+    cdef double[::1] z_view = z
+    
+    cdef double dz = (zmax - zmin)/n
+    
+    cdef object Schechter
+    cdef double alpha, Mstar, CoVol, Mth
 
     if (gal.is_detected and M_min is None) or (m_th is None and not gal.is_detected):
         raise SystemExit('No M or m threshold provided.')
@@ -165,19 +177,14 @@ cpdef object ComputeLogLhNoPost(object gal, CosmologicalParameters omega, double
         if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
             return -np.inf
         else:
-            return np.log(myERF(m_th))
+            return log(myERF(m_th))
 
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
-        z = np.linspace(zmin, zmax, 1000)
-        dz = z[3]-z[2]
         CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
-        I = np.zeros(len(z))
-        for i in range(len(z)):
-            Mth = absM(z[i], m_th, omega)
-            I[i] = Integrand_dark(z[i], omega, alpha, Mstar,Mth, M_max, CoVol)
 
-        Integral = 0.
-        for i in range(len(I)):
-            Integral += I[i]*dz
-        return np.log(Integral)
+        for i in range(n):
+            Mth = absM(z_view[i], m_th, omega)
+            I += Integrand_dark(z_view[i], omega, alpha, Mstar,Mth, M_max, CoVol)
+
+        return log(dz*I)
