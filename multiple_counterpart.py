@@ -41,16 +41,16 @@ if __name__ == '__main__':
     Ntot_events = len([f for f in all_files if 'event' in f])
 
     for i in range(Ntot_events):
+        i=i+1
         opts = options('TEST', i, path_events, nevmax = i)
 
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0,0) # True cosmology
         rel_z_error = 0.1 # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
-
         model = opts.model
         output = opts.data+"/pluribus_1%03d/"%(opts.event+1)
-
+        exit()
         print('Working on run {0} of {1}'.format(i+1, Ntot_events))
 
         C = CM.CosmologicalModel(model,
@@ -61,7 +61,7 @@ if __name__ == '__main__':
                               event_class   = opts.event_class)
 
         work=cpnest.CPNest(C,
-                           verbose      = 1,
+                           verbose      = 3,
                            poolsize     = 100,
                            nthreads     = 4,
                            nlive        = 1000,
