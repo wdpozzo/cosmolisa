@@ -159,6 +159,7 @@ if __name__=='__main__':
     parser.add_option('--maxmcmc',           default=1000, type='int', metavar='maxmcmc', help='Maximum number of mcmc steps')
     parser.add_option('--postprocess',       default=0, type='int', metavar='postprocess', help='Run only the postprocessing')
     parser.add_option('-n', '--nevmax',      default=None, type='int', metavar='nevmax', help='Maximum number of considered events')
+    parser.add_option('-u', '--uncert',      default='0.1', type='float', metavar='uncert', help='Relative uncertainty on z of each galaxy (peculiar motion)')
     (opts,args)=parser.parse_args()
 
     em_selection = opts.em_selection
@@ -166,7 +167,7 @@ if __name__=='__main__':
     if opts.event_class == 'TEST':
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0.,0.) # True cosmology
-        rel_z_error = 0.1 # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
+        rel_z_error = opts.uncert # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
 
     else:
