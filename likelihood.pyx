@@ -20,6 +20,7 @@ cdef inline double linear_density(double x, double a, double b): return a+log(x)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
+
 cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalParameters omega, double m_th, int Ntot, int em_selection = 0, double zmin = 0.0, double zmax = 1.0):
     """
     Likelihood function for a single GW event.
@@ -59,6 +60,7 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
         # quantità rilevanti descritte in CosmoInfer.
         p_no_post_view[i]   = ComputeLogLhNoPost(hosts[i], omega, zmin, zmax)
         p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, zmin, zmax)
+        print(p_no_post_view[i], p_with_post_view[i], i)
     # Calcolo le likelihood anche per una singola dark galaxy
     p_no_post_dark   = ComputeLogLhNoPost(mockgalaxy, omega, zmin, zmax)
     p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax)
@@ -66,10 +68,9 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
     cdef np.ndarray[double, ndim=1, mode="c"] addends = np.zeros(N, dtype=np.float64)
     cdef double[::1] addends_view = addends
     cdef double sum = np.sum(p_no_post)
-    
+
     for i in range(N):
         addends_view[i] = sum - p_no_post_view[i] + p_with_post_view[i] + M*p_no_post_dark
-        
     cdef double dark_term = sum + (M-1)*p_no_post_dark + p_with_post_dark
 
     # Manca da fare la somma finale
@@ -77,11 +78,11 @@ cpdef double logLikelihood_single_event(list hosts, object event, CosmologicalPa
     cdef double logL = -INFINITY
     for i in range(N):
         logL = log_add(addends_view[i], logL)
-    
+
     if np.isfinite(dark_term):
         for i in range(M):
             logL = log_add(dark_term, logL)
-    
+
     return logL
 
 cdef inline double absM(double z, double m, CosmologicalParameters omega):
@@ -106,7 +107,7 @@ cdef double Integrand_dark(double z, CosmologicalParameters omega, double alpha,
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef double ComputeLogLhWithPost(Galaxy gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 17, double M_max = 0, double M_min = -27):
+cdef double ComputeLogLhWithPost(Galaxy gal, object event, CosmologicalParameters omega, double zmin, double zmax, double m_th = 18, double M_max = 0, double M_min = -27):
     '''
     Attenzione: controllare i nomi al momento di definire la classe Event
     '''
@@ -114,13 +115,13 @@ cdef double ComputeLogLhWithPost(Galaxy gal, object event, CosmologicalParameter
     cdef unsigned int i, n = 1000
     cdef double mag_int
     cdef double LD_i
-    
+
     cdef double I = 0.0
     cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n, dtype = np.float64)
     cdef double[::1] z_view = z
-    
+
     cdef double dz = (zmax - zmin)/n
-    
+
     cdef object post_RA  = event.post_RA
     cdef object post_DEC = event.post_DEC
     cdef object post_LD  = event.post_LD
@@ -128,16 +129,16 @@ cdef double ComputeLogLhWithPost(Galaxy gal, object event, CosmologicalParameter
     cdef double CoVol
     cdef object Schechter
     cdef double alpha, Mstar, Mth
-    
+
     if gal.is_detected:
-        if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
-            return -INFINITY
-        else:
-            mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
-            for i in range(n):
-                LD_i = omega.LuminosityDistance(z_view[i])
-                I += event.post_LD(LD_i)*gaussian(z_view[i], gal.z, gal.dz) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
-            return log(dz*I*mag_int*gal.weight*event.post_RA(gal.RA)*event.post_DEC(gal.DEC))
+        # if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
+        #     return -INFINITY
+        # else:
+        mag_int = myERF(m_th) # Integrale distribuzione in magnitudine (Analitico, vedi pdf.)
+        for i in range(n):
+            LD_i = omega.LuminosityDistance(z_view[i])
+            I += event.post_LD(LD_i)*gaussian(z_view[i], gal.z, gal.dz) # Attenzione! GLADE non ha l'info sul dz. Va deciso "a mano"
+        return log(dz*I*mag_int*gal.weight*event.post_RA(gal.RA)*event.post_DEC(gal.DEC))
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter
         CoVol = (omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin))
@@ -166,13 +167,13 @@ cdef double ComputeLogLhNoPost(Galaxy gal, CosmologicalParameters omega, double 
     cdef unsigned int i, n = 1000
     cdef double mag_int
     cdef double LD_i
-    
+
     cdef double I = 0.0
     cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n, dtype = np.float64)
     cdef double[::1] z_view = z
-    
+
     cdef double dz = (zmax - zmin)/n
-    
+
     cdef object Schechter
     cdef double alpha, Mstar, CoVol, Mth
 
@@ -180,10 +181,11 @@ cdef double ComputeLogLhNoPost(Galaxy gal, CosmologicalParameters omega, double 
         raise SystemExit('No M or m threshold provided.')
 
     if gal.is_detected:
-        if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
-            return -INFINITY
-        else:
-            return log(myERF(m_th))
+        # if absM(gal.z, gal.app_magnitude, omega) > absM(gal.z, m_th, omega):
+        #     print('invalid cosmology')
+        #     return -INFINITY
+        # else:
+        return log(myERF(m_th))
 
     else:
         Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h) # Modo semplice per tirare fuori i parametri di Schechter

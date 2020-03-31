@@ -19,6 +19,7 @@ import numpy as np
 import likelihood as lk
 import matplotlib.pyplot as plt
 from displaypost import plot_post
+import math
 
 
 """
@@ -133,6 +134,8 @@ class CosmologicalModel(cpnest.model.Model):
         for e in self.data:
             logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 17., Ntot = e.n_hosts, zmin = e.zmin, zmax = e.zmax)
         self.O.DestroyCosmologicalParameters()
+        if math.isinf(logL):
+            return -np.inf
 
         return logL
 

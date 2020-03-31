@@ -20,6 +20,7 @@ import numpy as np
 import likelihood as lk
 import cosmological_model as CM
 import matplotlib.pyplot as plt
+import cosmology as cs
 
 
 class options(object):
@@ -35,7 +36,7 @@ class options(object):
 
 if __name__ == '__main__':
 
-    path_events = './pluribus'
+    path_events = './test_cosmoinfer/noem/'
 
     all_files   = os.listdir(path_events)
     Ntot_events = len([f for f in all_files if 'event' in f])
@@ -48,9 +49,9 @@ if __name__ == '__main__':
         rel_z_error = 0.1 # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
         events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
         model = opts.model
-        output = opts.data+"/pluribus_1%03d/"%(opts.event+1)
+        output = opts.data+"/MULT_1%03d/"%(opts.event+1)
         print('Working on run {0} of {1}'.format(i+1, Ntot_events))
-
+        print('Number of hosts: {0}'.format(events[0].n_hosts))
         C = CM.CosmologicalModel(model,
                               events,
                               em_selection  = 0,
@@ -61,7 +62,7 @@ if __name__ == '__main__':
         work=cpnest.CPNest(C,
                            verbose      = 3,
                            poolsize     = 100,
-                           nthreads     = 4,
+                           nthreads     = 1,
                            nlive        = 1000,
                            maxmcmc      = 100,
                            output       = output,

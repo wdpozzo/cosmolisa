@@ -106,7 +106,7 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
         catalog_file        = input_folder+"/"+cat
         event_file          = open(input_folder+'/'+ev,"r")
         data                = np.genfromtxt(event_file, names = True)
-        events.append(Event_test(N_ev_max, data['dLD'],data['dRA'], data['dDEC'], data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
+        events.append(Event_test(N_ev_max, data['dLD'],np.deg2rad(data['dRA']), np.deg2rad(data['dDEC']), data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
         event_file.close()
 
 
