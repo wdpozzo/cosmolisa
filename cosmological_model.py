@@ -163,7 +163,7 @@ if __name__=='__main__':
     parser.add_option('--postprocess',       default=0, type='int', metavar='postprocess', help='Run only the postprocessing')
     parser.add_option('-n', '--nevmax',      default=None, type='int', metavar='nevmax', help='Maximum number of considered events')
     parser.add_option('-u', '--uncert',      default='0.1', type='float', metavar='uncert', help='Relative uncertainty on z of each galaxy (peculiar motion)')
-    parser.add_option('-h', '--hosts',       default=None, type='int', metavar='hosts', help='Total number of galaxies in considered volume')
+    parser.add_option('-a', '--hosts',       default=None, type='int', metavar='hosts', help='Total number of galaxies in considered volume')
     (opts,args)=parser.parse_args()
 
     em_selection = opts.em_selection
