@@ -43,7 +43,8 @@ class Event_test(object):
                  omega,
                  rel_z_error  = 0.1,
                  catalog_file = None,
-                 catalog_data = None):
+                 catalog_data = None,
+                 n_tot        = None):
 
 
         if catalog_file is None and catalog_data is None:
@@ -70,8 +71,12 @@ class Event_test(object):
         self.zmin    = self.z_true-3*self.dz
         self.zmax    = self.z_true+3*self.dz
 
-        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, rel_z_error = rel_z_error, catalog_data = catalog_data, catalog_file = catalog_file)
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[self.ramin, self.ramax], 'DEC':[self.decmin, self.decmax], 'z':[self.zmin, self.zmax]}, rel_z_error = rel_z_error, catalog_data = catalog_data, catalog_file = catalog_file, n_tot = n_tot)
         self.n_hosts                = len(self.potential_galaxy_hosts)
+        if n_tot is not None:
+            self.n_tot = n_tot
+        else:
+            self.n_tot = self.n_hosts
 
     def post_LD(self, LD):
         app = gaussian(LD, self.LD, self.dLD)
@@ -86,7 +91,7 @@ class Event_test(object):
         return app
 
 
-def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None, rel_z_error = 0.1):
+def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_data = None, N_ev_max = None, rel_z_error = 0.1, n_tot = None):
     '''
     Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
     '''
@@ -106,7 +111,7 @@ def read_TEST_event(errors = None, omega = None, input_folder = None, catalog_da
         catalog_file        = input_folder+"/"+cat
         event_file          = open(input_folder+'/'+ev,"r")
         data                = np.genfromtxt(event_file, names = True)
-        events.append(Event_test(N_ev_max, data['dLD'],np.deg2rad(data['dRA']), np.deg2rad(data['dDEC']), data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data))
+        events.append(Event_test(N_ev_max, data['dLD'],np.deg2rad(data['dRA']), np.deg2rad(data['dDEC']), data['LD'], np.deg2rad(data['RA']), np.deg2rad(data['DEC']), omega, rel_z_error, catalog_file, catalog_data, n_tot))
         event_file.close()
 
 

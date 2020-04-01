@@ -5,7 +5,7 @@ import numpy as np
 import pickle
 from galaxy import Galaxy
 
-def read_galaxy_catalog(limits, rel_z_error = 0.1, catalog_data = None, catalog_file = None):
+def read_galaxy_catalog(limits, rel_z_error = 0.1, catalog_data = None, catalog_file = None, n_tot = None):
     '''
     The catalog can be passed either as a path or, if precedently loaded, as np.array.
     In case both data and path are provided, already loaded data are used.
@@ -45,7 +45,7 @@ def read_galaxy_catalog(limits, rel_z_error = 0.1, catalog_data = None, catalog_
             catalog.append(Galaxy(i, np.deg2rad(catalog_data['RA'][i]), np.deg2rad(catalog_data['DEC'][i]), catalog_data['z'][i], True, rel_z_error = rel_z_error, app_magnitude = catalog_data['B'][i], abs_magnitude = catalog_data['B_abs'][i])) # Controlla nomi con catalogo!
             # Warning: GLADE stores no information on dz. 2B corrected.
 
-    catalog = catalog_weight(catalog) # Implementare meglio la selezione del peso delle galassie.
+    catalog = catalog_weight(catalog, ngal = n_tot) # Implementare meglio la selezione del peso delle galassie.
 
     return catalog
 
@@ -55,7 +55,7 @@ def isinbound(galaxy, limits):
     return False
 
 
-def catalog_weight(catalog, weight = 'uniform'):
+def catalog_weight(catalog, weight = 'uniform', ngal = None):
     '''
     Method:
     Assign a weight for each galaxy in catalog according to the emission probability
@@ -66,6 +66,9 @@ def catalog_weight(catalog, weight = 'uniform'):
     '''
     if weight == 'uniform':
         for galaxy in catalog:
-            galaxy.weight = 1./len(catalog)
+            if ngal is None:
+                galaxy.weight = 1./len(catalog)
+            else:
+                galaxy.weight = 1./ngal
 
     return catalog

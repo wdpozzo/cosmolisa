@@ -132,7 +132,7 @@ class CosmologicalModel(cpnest.model.Model):
         #                         em_selection = self.em_selection, zmin = self.bounds[2+j][0], zmax = self.bounds[2+j][1]) for j,e in enumerate(self.data)])
         logL = 0.
         for e in self.data:
-            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 18., Ntot = e.n_hosts, zmin = e.zmin, zmax = e.zmax)
+            logL += lk.logLikelihood_single_event(e.potential_galaxy_hosts, e, self.O, 18., Ntot = e.n_tot, zmin = e.zmin, zmax = e.zmax)
         self.O.DestroyCosmologicalParameters()
         if math.isinf(logL):
             return -np.inf
@@ -163,6 +163,7 @@ if __name__=='__main__':
     parser.add_option('--postprocess',       default=0, type='int', metavar='postprocess', help='Run only the postprocessing')
     parser.add_option('-n', '--nevmax',      default=None, type='int', metavar='nevmax', help='Maximum number of considered events')
     parser.add_option('-u', '--uncert',      default='0.1', type='float', metavar='uncert', help='Relative uncertainty on z of each galaxy (peculiar motion)')
+    parser.add_option('-h', '--hosts',       default=None, type='int', metavar='hosts', help='Total number of galaxies in considered volume')
     (opts,args)=parser.parse_args()
 
     em_selection = opts.em_selection
@@ -171,7 +172,7 @@ if __name__=='__main__':
         errors = {'z':0.001, 'RA':0.01, 'DEC':0.01}
         omega = lal.CreateCosmologicalParameters(0.7,0.3,0.7,-1.,0.,0.) # True cosmology
         rel_z_error = opts.uncert # errore relativo sullo z della galassia (moto proprio + errore sperimentale)
-        events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error)
+        events = readdata.read_event(opts.event_class, errors = errors, omega = omega, input_folder = opts.data, N_ev_max = opts.nevmax, rel_z_error = rel_z_error, n_tot = opts.hosts)
 
     else:
         events = readdata.read_event(opts.event_class, opts.data, opts.event)
