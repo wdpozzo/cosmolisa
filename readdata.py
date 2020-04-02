@@ -25,6 +25,42 @@ def RedshiftCalculation(LD, omega, zinit=0.3, limit = 0.001):
     znew = zinit - (LD_test - LD)/dLumDist(zinit,omega)
     return RedshiftCalculation(LD, omega, zinit = znew)
 
+def get_samples(file, names = ['ra','dec','luminosity_distance']):
+    filename, ext = splitext(file)
+    samples = {}
+
+    if ext == '.json':
+        with open(file, 'r') as f:
+            data = json.load(f)
+
+        post = np.array(data['posterior_samples']['SEOBNRv4pHM']['samples'])
+        keys = data['posterior_samples']['SEOBNRv4pHM']['parameter_names']
+
+        for name in names:
+            index  = keys.index(name)
+            samples[name] = post[:,index]
+
+        return samples
+
+    if ext == '.hdf5':
+        f = h5py.File(file, 'r')
+        dati = f[list(f.keys())[2]] # 2 low spin posteriors, 0 high spin posteriors
+        h5names = ['right_ascension','declination','luminosity_distance_Mpc']
+
+        for name, nameh5 in zip(names, h5names):
+            samples[name] = dati[nameh5]
+
+        return samples
+
+    if ext == '.dat':
+        data = np.genfromtxt(file, names = True)
+        dat_names = ['ra','dec','distance']
+
+        for name, name_dat in zip(names, dat_names):
+            samples[name] = data[dat_names]
+
+        return samples
+
 
 class Event_test(object):
     """
