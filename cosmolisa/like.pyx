@@ -63,8 +63,8 @@ cdef _logLikelihood_single_event(const list hosts,
 #
 #=====================
     '''
-    N_h: galaxies within 95% CR
-    N_obs: observed galaxies
+    N_h: galaxies within 95% CR (ranked)
+    N_obs: observed galaxies (ranked by probability)
     N_tot: total number of galaxies (nV)
     N_em: potential emitters
     N_b: expected bright galaxies
@@ -120,4 +120,28 @@ cdef _logLikelihood_single_event(const list hosts,
     if N_tot < N_em:
         N_noem = 0
 
-
+#   p(D|Gi)p(Gi)
+    for i in range(N_h):
+        p_with_post_view[i] = ComputeLogLhWithPost()
+    p_with_post_dark = ComputeLogLhWithPost()
+    
+#   p(Gi)
+    for i in range(N_obs):
+        p_no_post_view[i] = ComputeLogLhNoPost()
+    p_no_post_dark = ComputeLogLhNoPost()
+    p_noem         = ComputeLogLhNoEmission()
+    
+#   Sum
+    sum_no_post = np.sum(p_no_post)
+    for i in range(N_h):
+        addends_view[i] = sum_no_post - p_no_post_view[i] + p_with_post_view[i] + N_dark_em*p_no_post_dark + N_noem*p_noem
+    dark_term = sum_no_post + (N_dark_em-1)*p_no_post_dark + p_with_post_dark + N_noem*p_noemission
+    
+    for i in range(N_h):
+        logL = log_add(logL, addends_view[i])
+    for i in range(N_dark_em):
+        logL = log_add(logL, dark_term)
+    
+    logL += log(prob_Nobs(N_obs, N_b))
+    
+    return logL
