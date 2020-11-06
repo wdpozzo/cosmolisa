@@ -3,7 +3,7 @@ from __future__ import division
 import numpy as np
 cimport numpy as np
 from numpy cimport ndarray
-from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,erf,erfc,HUGE_VAL
+from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,erf,erfc,HUGE_VAL,INFINITY,log10
 cimport cython
 from scipy.special import logsumexp
 from scipy.optimize import newton
@@ -11,6 +11,8 @@ from scipy.integrate import quad
 from cosmolisa.cosmology cimport CosmologicalParameters, _StarFormationDensity, _IntegrateRateWeightedComovingVolumeDensity
 from libc.math cimport isfinite
 from define_galaxy cimport Galaxy
+from schechter cimport *
+from likelihood_functions cimport *
 
 cdef inline double log_add(double x, double y) nogil: return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 
@@ -55,7 +57,11 @@ cdef _logLikelihood_single_event(const list hosts,
                                 const double M_min,
                                 const double M_cutoff):
 
-    cdef unsigned int i
+#=====================
+#
+# Variable declaration
+#
+#=====================
     '''
     N_h: galaxies within 95% CR
     N_obs: observed galaxies
@@ -79,4 +85,39 @@ cdef _logLikelihood_single_event(const list hosts,
     cdef double[::1] p_no_post_view   = p_no_post
 #   Computing
     cdef Galaxy dark_galaxy = Galaxy(-1,0,0,0, False, weight = 1.)
+    cdef logL = -INFINITY
+    cdef double dark_term = 0.
+    cdef np.ndarray[double, ndim = 1, mode = "c"] addends = np.zeros(N_obs, dtype = np.float64)
+    cdef double[::1] addends_view = addends
+    cdef double sum_no_post
+#   Miscellanea
+    cdef double CoVol
+    cdef object Schechter
+    cdef double alpha, Mstar
+    cdef unsigned int i
+
+#============
+#
+# Calculation
+#
+#============
     
+#   Computing numbers and quantities
+
+    CoVol     = omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin)
+    N_tot     = CoVol*number_density
+    N_em      = ComputeEmitters()
+    N_b       = ComputeBright()
+    N_dark    = N_tot - N_obs
+    N_dark_em = N_em - N_obs
+    N_noem    = N_tot - N_em
+    Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
+    
+#   Coherence check
+    
+    if N_em < N_obs:
+        N_dark_em = 0
+    if N_tot < N_em:
+        N_noem = 0
+
+
