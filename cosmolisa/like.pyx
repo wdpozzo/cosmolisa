@@ -36,7 +36,7 @@ def logLikelihood_single_event(const list hosts,
     catalog: :obj:'list': complete galaxy catalog
     m_th: :obj:'numpy.double': threshold magnitude
     number_density: :obj:'numpy.double': galaxy number density
-    event: :obj: : gravitational event (includes posterior distributions)
+    event: :obj: :'object': gravitational event (includes posterior distributions)
     omega: :obj:'lal.CosmologicalParameter': cosmological parameter structure
     zmin: :obj:'numpy.double': minimum redshift
     zmax: :obj:'numpy.double': maximum redshift
