@@ -45,7 +45,11 @@ def logLikelihood_single_event(const list hosts,
     M_cutoff: :obj: 'numpy.double': cutoff magnitude
     """
     return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax)
-
+    
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
 cdef _logLikelihood_single_event(const list hosts,
                                 const list catalog,
                                 const double m_th,
