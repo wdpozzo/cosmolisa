@@ -146,6 +146,6 @@ cdef _logLikelihood_single_event(const list hosts,
     for i in range(N_dark_em):
         logL = log_add(logL, dark_term)
     
-    logL += log(prob_Nobs(N_obs, N_b))
+    logL += prob_Nobs(N_obs, N_b)
     
     return logL
