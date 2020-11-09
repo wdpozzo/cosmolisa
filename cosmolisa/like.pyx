@@ -126,14 +126,14 @@ cdef _logLikelihood_single_event(const list hosts,
 
 #   p(D|Gi)p(Gi)
     for i in range(N_h):
-        p_with_post_view[i] = ComputeLogLhWithPost()
-    p_with_post_dark = ComputeLogLhWithPost()
+        p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
+    p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
     
 #   p(Gi)
     for i in range(N_obs):
-        p_no_post_view[i] = ComputeLogLhNoPost()
-    p_no_post_dark = ComputeLogLhNoPost()
-    p_noem         = ComputeLogLhNoEmission()
+        p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, zmin, zmax, M_cutoff, m_th, M_max, M_min)
+    p_no_post_dark = ComputeLogLhNoPost(mockgalaxy, event, omega, zmin, zmax, M_cutoff, m_th, M_max, M_min)
+    p_noem         = ComputeLogLhNoEmission(mockgalaxy, event, omega, zmin, zmax, M_cutoff, M_max, M_min)
     
 #   Sum
     sum_no_post = np.sum(p_no_post)
