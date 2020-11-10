@@ -10,9 +10,9 @@ from scipy.optimize import newton
 from scipy.integrate import quad
 from cosmolisa.cosmology cimport CosmologicalParameters, _StarFormationDensity, _IntegrateRateWeightedComovingVolumeDensity
 from libc.math cimport isfinite
-from define_galaxy cimport Galaxy
-from schechter cimport *
-from likelihood_functions cimport *
+from cosmolisa.galaxy cimport Galaxy
+from cosmolisa.schechter cimport *
+from cosmolisa.likelihood_functions cimport *
 
 cdef inline double log_add(double x, double y) nogil: return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 
@@ -115,6 +115,7 @@ cdef _logLikelihood_single_event(const list hosts,
     N_dark    = N_tot - N_obs
     N_dark_em = N_em - N_obs
     N_noem    = N_tot - N_em
+    
     Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
     
 #   Coherence check
