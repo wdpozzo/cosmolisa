@@ -2,7 +2,7 @@ import numpy as np
 cimport numpy as np
 from libc.math cimport log,exp,sqrt,cos,fabs,sin,sinh,M_PI,erf,erfc,INFINITY,log10
 cimport cython
-from define_galaxy cimport Galaxy
+from cosmolisa.galaxy cimport Galaxy
 from scipy.integrate import quad, dblquad
 from cosmolisa.cosmology cimport CosmologicalParameters
 
