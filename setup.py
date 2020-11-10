@@ -32,7 +32,7 @@ ext_modules=[
                        include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
                        ),
              Extension("cosmolisa.likelihood",
-                       sources=["cosmolisa/likelihood.pyx"],
+                       sources=["cosmolisa/like.pyx"],
                        libraries=["m","lal"], # Unix-like specific
                        library_dirs = [lal_libs],
                        extra_compile_args=["-O3","-ffast-math"],
@@ -46,8 +46,22 @@ ext_modules=[
                       include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
                       ),
             Extension("cosmolisa.galaxy",
-                      sources=["cosmolisa/galaxy.pyx"],
+                      sources=["cosmolisa/define_galaxy.pyx"],
                       libraries=["m","lal"], # Unix-like specific
+                      library_dirs = [lal_libs],
+                      extra_compile_args=["-O3","-ffast-math"],
+                      include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
+                      )
+            Extension("cosmolisa.likelihood_functions",
+                      sources=["cosmolisa/likelihood_functions.pyx"],
+                      libraries=["m","lal"],
+                      library_dirs = [lal_libs],
+                      extra_compile_args=["-O3","-ffast-math"],
+                      include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
+                      )
+            Extension("cosmolisa.schechter",
+                      sources=["cosmolisa/schechter_function.pyx"],
+                      libraries=["m","lal"],
                       library_dirs = [lal_libs],
                       extra_compile_args=["-O3","-ffast-math"],
                       include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
