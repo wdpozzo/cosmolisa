@@ -25,12 +25,6 @@ cdef class SchechterMagFunctionInternal:
     alpha : observed characteristic slope.
     phistar : density (can be set to unity)
     """
-    cdef public double Mstar
-    cdef public double phistar
-    cdef public double alpha
-    cdef public double mmin
-    cdef public double mmax
-    cdef public double norm
     def __cinit__(self, double Mstar, double alpha, double mmin, double mmax, double phistar=1.):
         self.Mstar = Mstar
         self.phistar = phistar
@@ -65,7 +59,7 @@ cdef class SchechterMagFunctionInternal:
         norm = self.normalise()
         return self._evaluate(m)/norm
 
-cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str band='B'):
+cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str band = 'B'):
     """
     Returns a Schechter magnitude function for a given set of parameters
 
