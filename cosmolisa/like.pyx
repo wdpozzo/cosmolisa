@@ -8,25 +8,23 @@ cimport cython
 from scipy.special import logsumexp
 from scipy.optimize import newton
 from scipy.integrate import quad
-from cosmolisa.cosmology cimport CosmologicalParameters, _StarFormationDensity, _IntegrateRateWeightedComovingVolumeDensity
+from cosmolisa.cosmology cimport CosmologicalParameters
 from libc.math cimport isfinite
 from cosmolisa.galaxy cimport Galaxy
 from cosmolisa.schechter cimport *
-from cosmolisa.likelihood_functions cimport *
+from cosmolisa.likelihoodfunctions cimport *
 
-cdef inline double log_add(double x, double y) nogil: return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
-
-def logLikelihood_single_event(const list hosts,
-                                const list catalog,
-                                const double m_th,
-                                const double number_density,
-                                object event,
-                                CosmologicalParameters omega,
-                                const double zmin = 0.0,
-                                const double zmax = 1.0,
-                                const double M_max = -6.,
-                                const double M_min = -23.,
-                                const double M_cutoff = -15.):
+def logLikelihood_single_event(list hosts,
+                               list catalog,
+                               const double m_th,
+                               const double number_density,
+                               object event,
+                               CosmologicalParameters omega,
+                               const double zmin = 0.0,
+                               const double zmax = 1.0,
+                               const double M_max = -6.,
+                               const double M_min = -23.,
+                               const double M_cutoff = -15.):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
@@ -44,22 +42,23 @@ def logLikelihood_single_event(const list hosts,
     M_min: :obj:'numpy.double': minimum absolute magnitude
     M_cutoff: :obj: 'numpy.double': cutoff magnitude
     """
-    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax)
+    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax, M_max, M_min, M_cutoff)
     
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
-cdef _logLikelihood_single_event(const list hosts,
-                                const list catalog,
-                                const double m_th,
-                                object event,
-                                CosmologicalParameters omega,
-                                const double zmin,
-                                const double zmax,
-                                const double M_max,
-                                const double M_min,
-                                const double M_cutoff):
+cdef _logLikelihood_single_event(list hosts,
+                                 list catalog,
+                                 const double m_th,
+                                 const double number_density,
+                                 object event,
+                                 CosmologicalParameters omega,
+                                 const double zmin,
+                                 const double zmax,
+                                 const double M_max,
+                                 const double M_min,
+                                 const double M_cutoff):
 
 #=====================
 #
@@ -108,15 +107,15 @@ cdef _logLikelihood_single_event(const list hosts,
     
 #   Computing numbers and quantities
 
+    Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
+
     CoVol     = omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin)
-    N_tot     = CoVol*number_density
-    N_em      = ComputeEmitters()
-    N_b       = ComputeBright()
+    N_tot     = int(CoVol*number_density)
+    N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min)
+    N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min)
     N_dark    = N_tot - N_obs
     N_dark_em = N_em - N_obs
     N_noem    = N_tot - N_em
-    
-    Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
     
 #   Coherence check
     
@@ -127,20 +126,20 @@ cdef _logLikelihood_single_event(const list hosts,
 
 #   p(D|Gi)p(Gi)
     for i in range(N_h):
-        p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
-    p_with_post_dark = ComputeLogLhWithPost(mockgalaxy, event, omega, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
+        p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
+    p_with_post_dark = ComputeLogLhWithPost(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
     
 #   p(Gi)
     for i in range(N_obs):
-        p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, zmin, zmax, M_cutoff, m_th, M_max, M_min)
-    p_no_post_dark = ComputeLogLhNoPost(mockgalaxy, event, omega, zmin, zmax, M_cutoff, m_th, M_max, M_min)
-    p_noem         = ComputeLogLhNoEmission(mockgalaxy, event, omega, zmin, zmax, M_cutoff, M_max, M_min)
+        p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
+    p_no_post_dark = ComputeLogLhNoPost(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
+    p_noem         = ComputeLogLhNoEmission(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, M_max, M_min)
     
 #   Sum
     sum_no_post = np.sum(p_no_post)
     for i in range(N_h):
         addends_view[i] = sum_no_post - p_no_post_view[i] + p_with_post_view[i] + N_dark_em*p_no_post_dark + N_noem*p_noem
-    dark_term = sum_no_post + (N_dark_em-1)*p_no_post_dark + p_with_post_dark + N_noem*p_noemission
+    dark_term = sum_no_post + (N_dark_em-1)*p_no_post_dark + p_with_post_dark + N_noem*p_noem
     
     for i in range(N_h):
         logL = log_add(logL, addends_view[i])

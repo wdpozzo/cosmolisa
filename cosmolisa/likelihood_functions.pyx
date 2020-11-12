@@ -6,11 +6,12 @@ from cosmolisa.galaxy cimport Galaxy
 from scipy.integrate import quad, dblquad
 from cosmolisa.cosmology cimport CosmologicalParameters
 
-cdef inline double log_add(double x, double y): return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
+cdef inline double log_add(double x, double y) nogil: return x+log(1.0+exp(y-x)) if x >= y else y+log(1.0+exp(x-y))
 
 cdef double ComputeLogLhWithPost(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -37,7 +38,7 @@ cdef double ComputeLogLhWithPost(Galaxy gal,
     '''
     
     
-    return _ComputeLogLhWithPost(gal, event, omega, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min, sigma_z)
+    return _ComputeLogLhWithPost(gal, event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min, sigma_z)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -46,6 +47,7 @@ cdef double ComputeLogLhWithPost(Galaxy gal,
 cdef double _ComputeLogLhWithPost(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -64,7 +66,7 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
     cdef double[::1] z_view = z
     cdef double[::1] M_view = M
     cdef double dz = (zmax - zmin)/n
-    cdef double dm = (M_max - M_min)/n
+    cdef double dM = (M_max - M_min)/n
     
     cdef double LD
     cdef double M_th
@@ -79,7 +81,7 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
             p_emission = log(1./N_em)
             p_post = event.logP([LD, gal.DEC, gal.RA])
             p_mag = log(Schechter(absM(gal.z, gal.app_magnitude, omega)))
-            p_propmotion = log_gaussian(gal.z, z_view[i], sigma_z))
+            p_propmotion = log_gaussian(gal.z, z_view[i], sigma_z)
             p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
             prior_wave = -log(4*M_PI)+2*log(LD)-log((omega.LuminosityDistance(zmax)-omega.LuminosityDistance(zmin))/3.)
             prior_galaxy = -log(4*M_PI)
@@ -105,13 +107,14 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
                     dI_M = log(Schechter(M_view[j], z_view[i], omega)) + log(dM)
                 I_M = log_add(I_M, dI_M)
             
-            dI_z = p_post+p_emission+I_M+prior_galaxy+p_propmotion+p_z_cosmo-prior_wave+log(dz)
+            dI_z = p_post+p_emission+I_M+prior_galaxy+p_z_cosmo-prior_wave+log(dz)
             I_z = log_add(I_z, dI_z)
         return I_z
 
 cdef double ComputeLogLhNoPost(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -135,7 +138,7 @@ cdef double ComputeLogLhNoPost(Galaxy gal,
     sigma_z: :obj:'numpy.double': redshift uncertainty (proper motion)
     '''
     
-    return _ComputeLogLhNoPost(gal, event, omega, zmin, zmax, M_cutoff, m_th, M_max, M_min, sigma_z)
+    return _ComputeLogLhNoPost(gal, event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min, sigma_z)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -144,6 +147,7 @@ cdef double ComputeLogLhNoPost(Galaxy gal,
 cdef double _ComputeLogLhNoPost(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -161,7 +165,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
     cdef double[::1] z_view = z
     cdef double[::1] M_view = M
     cdef double dz = (zmax - zmin)/n
-    cdef double dm = (M_max - M_min)/n
+    cdef double dM = (M_max - M_min)/n
     
     cdef double LD
     cdef double M_th
@@ -174,7 +178,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
         for i in range(n):
             LD = omega.LuminosityDistance(z_view[i])
             p_mag = log(Schechter(absM(gal.z, gal.app_magnitude, omega)))
-            p_propmotion = log_gaussian(gal.z, z_view[i], sigma_z))
+            p_propmotion = log_gaussian(gal.z, z_view[i], sigma_z)
             p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
             prior_galaxy = -log(4*M_PI)
             dI_z = p_mag+p_propmotion+prior_galaxy+p_z_cosmo+log(dz)
@@ -184,7 +188,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
     else:
         #redshift integral
         for i in range(n):
-            LD = omega.LuminosityDistance(z_view[i]
+            LD = omega.LuminosityDistance(z_view[i])
             p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
             prior_wave = -log(4*M_PI)+2*log(LD)-log((omega.LuminosityDistance(zmax)-omega.LuminosityDistance(zmin))/3.)
             
@@ -203,6 +207,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
 cdef double ComputeLogLhNoEmission(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -222,7 +227,7 @@ cdef double ComputeLogLhNoEmission(Galaxy gal,
     M_min: :obj:'numpy.double': Schechter function lower limit
     '''
 
-    return _ComputeLogLhNoEmission(gal, event, omega, zmin, zmax, M_cutoff, M_max, M_min)
+    return _ComputeLogLhNoEmission(gal, event, omega, Schechter, zmin, zmax, M_cutoff, M_max, M_min)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -231,6 +236,7 @@ cdef double ComputeLogLhNoEmission(Galaxy gal,
 cdef double _ComputeLogLhNoEmission(Galaxy gal,
                                     object event,
                                     CosmologicalParameters omega,
+                                    object Schechter,
                                     double zmin,
                                     double zmax,
                                     double M_cutoff,
@@ -246,7 +252,7 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
     cdef double[::1] z_view = z
     cdef double[::1] M_view = M
     cdef double dz = (zmax - zmin)/n
-    cdef double dm = (M_max - M_min)/n
+    cdef double dM = (M_max - M_min)/n
     
     cdef double LD
     cdef double M_th
@@ -256,10 +262,9 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
     
     #redshift integral
     for i in range(n):
-        LD = omega.LuminosityDistance(z_view[i]
+        LD = omega.LuminosityDistance(z_view[i])
         p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
         #magnitude integral
-        M_th = absM(z_view[i], m_th, omega)
         I_M = -INFINITY
         for j in range(n):
             if (M_view[j] > M_cutoff):
@@ -270,13 +275,13 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
         I_z = log_add(I_z, dI_z)
     return I_z
 
-cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, string distribution = 'poisson'):
+cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, str distribution = 'poisson'):
     '''
     Computes the probability of observing N_obs galaxies given the expected number N_b
     Stirling approximation for log factorial:
         log(x!) ~ x log(x) - x
     =====================
-    distribution: :obj::'string': probability distribution for the number of bright galaxies. 'poission' or 'binomial'.
+    distribution: :obj::'str': probability distribution for the number of bright galaxies. 'poission' or 'binomial'.
     '''
     
     if distribution == 'poisson':
@@ -297,14 +302,15 @@ cdef unsigned int ComputeBright(double n, CosmologicalParameters omega, object S
     Eq. 9
     Computes the expected number of bright galaxies
     '''
-    cdef object integrand(double M, double z, CosmologicalParameters omega, object Schechter):
-        return omega.ComovingVolumeElement(z)*Schechter(M))
-        
-    cdef object upperbound(double z, double m_th, CosmologicalParameters omega):
-        return lambda z: absM(z,m_th,omega)
         
     return int(n*dblquad(integrand, zmin, zmax, M_min, upperbound, args = (omega, Schechter))[0])
     
+
+cdef double integrand(double M, double z, CosmologicalParameters omega, object Schechter):
+    return omega.ComovingVolumeElement(z)*Schechter(M)
+        
+cdef object upperbound(double z, double m_th, CosmologicalParameters omega):
+    return lambda z: absM(z,m_th,omega)
 
 cdef inline double absM(double z, double m, CosmologicalParameters omega):
     return m - 5.0*log10(1e5*omega.LuminosityDistance(z)) + 5.*log10(omega.h)
