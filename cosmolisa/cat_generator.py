@@ -9,14 +9,17 @@ import readdata
 import cosmolisa.cosmology as cs
 import numpy as np
 import matplotlib.pyplot as plt
-from displaypost import plot_post
 import math
-from schechter import *
+from cosmolisa.schechter import *
 import random as rd
 from scipy.stats import poisson
+from scipy.integrate import quad
 
 def appM(z, M, omega):
     return M + 5.0*np.log10(1e5*lal.LuminosityDistance(omega,z)) - 5.*np.log10(omega.h)
+
+def absM(z, m, omega):
+    return m - 5.0*np.log10(1e5*lal.LuminosityDistance(omega,z)) + 5.*np.log10(omega.h)
 
 def gaussian(x, x0, sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
@@ -84,10 +87,10 @@ if __name__ == '__main__':
     output = '/Users/stefanorinaldi/Desktop/cat_test/'
     if not os.path.exists(output):
         os.mkdir(output)
-    numberdensity = 0.066
+    numberdensity = 0.66
 
-    z_min = 0
-    z_max = 0.001
+    z_min = 0.0001
+    z_max = 0.02
 
     dCoVolMax = lal.ComovingVolumeElement(z_max,omega)
     pM_max    = Schechter(M_max)
@@ -178,34 +181,45 @@ if __name__ == '__main__':
 
 
     for zi in app_z:
-        app_CoVol.append(lal.ComovingVolumeElement(zi, omega)/CoVol)
+        #app_CoVol.append(lal.ComovingVolumeElement(zi, omega)/CoVol)
+        app_CoVol.append(numberdensity*lal.ComovingVolumeElement(zi,omega)*quad(Schechter, M_min, absM(zi, m_th, omega))[0])
+    
+    app_CoVol = np.array(app_CoVol)
+    app_CoVol /= app_CoVol.sum()*(app_z[2]-app_z[1])
 
 
     app_z_pm    = np.linspace(-5*0.0001, 5*0.0001, 1000)
     app_M       = np.linspace(M_min, M_max, 1000)
-    app_M_hosts = np.linspace(M_mean-4*sigma, M_mean+4*sigma, 1000)
+    #app_M_hosts = np.linspace(M_mean-4*sigma, M_mean+4*sigma, 1000)
     app_pM      = []
 
     for Mi in app_M:
-        ratio = float(n_ev)/float(N_tot)
-        app_pM.append((1-ratio)*Schechter(Mi)+ratio*gaussian(Mi, M_mean, sigma))
+        # ratio = float(n_ev)/float(N_tot)
+        #app_pM.append((1-ratio)*Schechter(Mi)+ratio*gaussian(Mi, M_mean, sigma))
+        I = 0.
+        for zi in app_z:
+            if appM(zi, Mi, omega) < m_th:
+                I += lal.ComovingVolumeElement(zi, omega)*numberdensity*Schechter(Mi)
+        app_pM.append(I*(app_z[2]-app_z[1]))
+    app_pM = np.array(app_pM)
+    app_pM /= app_pM.sum()*(app_M[2]-app_M[1])
 
-    ax_z_cosmo.hist(z_cosmo, bins = int(np.sqrt(len(z_cosmo))), density = True, color='lightblue', label = '$a_{cosmo}$')
-    ax_z_cosmo.plot(app_z, app_CoVol, color = 'red', linewidth = 0.5, label = '$\\propto dV_{cov}/dz$')
+    ax_z_cosmo.hist(z_cosmo, bins = int(np.sqrt(len(z_cosmo))), density = True, color='lightblue', label = '$z_{cosmo}$')
+    ax_z_cosmo.plot(app_z, app_CoVol, color = 'red', linewidth = 0.5, label = '$\\propto dN_{obs}/dz$')
     ax_z_cosmo.set_xlabel('$z_{cosmo}$')
     ax_z_cosmo.set_ylabel('$p(z_{cosmo})$')
     ax_z_cosmo.legend(loc = 0)
     fig_z_cosmo.savefig(output+'z_cosmo.pdf', bbox_inches='tight')
 
-    ax_z_pm.hist(np.array(z)-np.array(z_cosmo), bins = int(np.sqrt(len(z_cosmo))), density = True, color='lightblue', label ='z_{pm}')
-    ax_z_pm.plot(app_z_pm, gaussian(app_z_pm, 0, 0.001), color = 'red', linewidth = 0.5, label = '$\\propto exp((z_{pm})^2/2\\sigma^2)$')
+    ax_z_pm.hist(np.array(z)-np.array(z_cosmo), bins = int(np.sqrt(len(z_cosmo))), density = True, color='lightblue', label ='$z_{pm}$')
+    ax_z_pm.plot(app_z_pm, gaussian(app_z_pm, 0, 0.0001), color = 'red', linewidth = 0.5, label = '$\\propto exp((z_{pm})^2/2\\sigma^2)$')
     ax_z_pm.set_xlabel('$z_{pm}$')
     ax_z_pm.set_ylabel('$p(z_{pm})$')
     ax_z_pm.legend(loc=0)
     fig_z_pm.savefig(output+'z_pm.pdf', bbox_inches='tight')
 
     ax_M.hist(absB, bins = int(np.sqrt(len(absB))), density = True, color='lightblue', label = '$M$')
-    ax_M.plot(app_M, app_pM, color = 'red', linewidth = 0.5, label = '$\\propto Sch(M)$')
+    ax_M.plot(app_M, app_pM, color = 'red', linewidth = 0.5, label = '$\\propto dN/dM$')
     ax_M.set_xlabel('$M\ (B\ band)$')
     ax_M.set_ylabel('$p(M)$')
     ax_M.legend(loc = 0)
