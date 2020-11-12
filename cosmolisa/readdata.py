@@ -1,22 +1,58 @@
 import numpy as np
 import sys
 import os
+from galaxies import *
+import lal
+from volume_reconstruction.dpgmm.dpgmm import *
+from volume_reconstruction.utils.utils import *
+import dill as pickle
+from scipy.special import logsumexp
+from scipy.interpolate import interp1d
+from scipy.stats import gaussian_kde
+# from numba import jit
+import re
 
-class Galaxy(object):
-    """
-    Galaxy class:
-    initialise a galaxy defined by its redshift, redshift error
-    and weight determined by its angular position
-    relative to the LISA posterior
-    """
-    def __init__(self, redshift, dredshift, weight, dl):
-        
-        self.redshift   = redshift
-        self.dredshift  = dredshift
-        self.weight     = weight
-        self.dl         = dl
+def atoi(text):
+    return int(text) if text.isdigit() else text
 
-class Event(object):
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+
+def logPosterior(args):
+    density,celestial_coordinates = args
+    cartesian_vect = celestial_to_cartesian(celestial_coordinates)
+    logPs = [np.log(density[0][ind])+prob.logProb(cartesian_vect) for ind,prob in enumerate(density[1])]
+    return logsumexp(logPs)+np.log(Jacobian(cartesian_vect))
+
+def gaussian(x,x0,sigma):
+    return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
+
+
+def LumDist(z, omega):
+    return 3e3*(z + (1-omega.om +omega.ol)*z**2/2.)/omega.h
+
+def dLumDist(z, omega):
+    return 3e3*(1+(1-omega.om+omega.ol)*z)/omega.h
+
+def RedshiftCalculation(LD, omega, zinit=0.3, limit = 0.001):
+    '''
+    Redshift given a certain luminosity, calculated by recursion.
+    Limit is the less significative digit.
+    '''
+    LD_test = LumDist(zinit, omega)
+    if abs(LD-LD_test) < limit :
+        return zinit
+    znew = zinit - (LD_test - LD)/dLumDist(zinit,omega)
+    return RedshiftCalculation(LD, omega, zinit = znew)
+
+
+
+class Event_test(object):
     """
     Event class:
     initialise a GW event based on its distance and potential
@@ -24,287 +60,284 @@ class Event(object):
     """
     def __init__(self,
                  ID,
-                 dl,
-                 sigma,
-                 sigma_gw_theta,
-                 sigma_gw_phi,
-                 redshifts,
-                 dredshifts,
-                 weights,
-                 zmin,
-                 zmax,
-                 snr,
-                 z_true,
-                 dl_host,
-                 snr_threshold = 8.0,
-                 VC = None):
+                 catalog_file,
+                 event_file,
+                 levels_file,
+                 EMcp         = 0,
+                 n_tot        = None,
+                 gal_density  = 0.6675): # galaxies/Mpc^3 (from Conselice et al., 2016)
 
-        self.potential_galaxy_hosts = [Galaxy(r,dr,w,dl) for r,dr,w,dl in zip(redshifts,dredshifts,weights,dl_host)]
-        self.n_hosts                = len(self.potential_galaxy_hosts)
+        if catalog_file is None:
+            raise SystemExit('No catalog provided')
+
         self.ID                     = ID
-        self.dl                     = dl
-        self.sigma                  = sigma
-        self.sigma_gw_theta         = sigma_gw_theta
-        self.sigma_gw_phi           = sigma_gw_phi
-        self.dmax                   = (self.dl+3.0*self.sigma)
-        self.dmin                   = (self.dl-3.0*self.sigma)
-        self.zmin                   = zmin
-        self.zmax                   = zmax
-        self.snr                    = snr
-        self.VC                     = VC
-        self.z_true                 = z_true
-        if self.dmin < 0.0: self.dmin = 0.0
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = catalog_file, n_tot = None)
+        self.n_hosts                = len(self.potential_galaxy_hosts)
 
-def read_MBH_event(input_folder, event_number, max_distance = None, max_hosts = None):
-    
-    all_files   = os.listdir(input_folder)
-    events_list = [f for f in all_files if 'EVENT' in f or 'event' in f]
-    
-    if event_number is None:
-        
-        events = []
-        
-        for ev in events_list:
-            
-            event_file          = open(input_folder+"/"+ev+"/ID.dat","r")
-            event_id,dl,sigma   = event_file.readline().split(None)
-            ID                  = np.int(event_id)
-            dl                  = np.float64(dl)
-            sigma               = np.float64(sigma)*dl
-            event_file.close()
-            
-            try:
-                redshifts,d_redshifts   = np.loadtxt(input_folder+"/"+ev+"/ERRORBOX.dat",unpack=True)
-                redshifts               = np.atleast_1d(redshifts)
-                d_redshifts             = np.atleast_1d(d_redshifts)
-                weights                 = np.ones(len(redshifts))
-                zmin                    = np.maximum(redshifts - 5.0*d_redshifts, 0.0)
-                zmax                    = redshifts + 5.0*d_redshifts
-                events.append(Event(ID,
-                                    dl,
-                                    sigma,
-                                    1,
-                                    1,
-                                    redshifts,
-                                    d_redshifts,
-                                    weights,
-                                    zmin,
-                                    zmax,
-                                    -1,
-                                    -1,
-                                    [0]))
-                sys.stderr.write("Selecting event %s at a distance %s (error %s), hosts %d\n"%(event_id,dl,sigma,len(redshifts)))
-            except:
-                if (TypeError, NameError): raise
-                else: sys.stderr.write("Event %s at a distance %s (error %s) has no hosts, skipping\n"%(event_id,dl,sigma))
+        self.cl      = np.genfromtxt(levels_file, names = True)
+        self.vol_90  = self.cl['volume']*0.6
+        self.area_90 = self.cl['area']
+        self.LDmin   = self.cl['LD_min']
+        self.LDmax   = self.cl['LD_max']
+        self.ramin   = self.cl['ra_min']
+        self.ramax   = self.cl['ra_max']
+        self.decmin  = self.cl['dec_min']
+        self.decmax  = self.cl['dec_max']
+        self.zmin    = self.cl['z_min']
+        self.zmax    = self.cl['z_max']
 
-        if max_distance is not None:
-            distance_limited_events = [e for e in events if e.dl < max_distance]
+        self.posterior = np.genfromtxt(event_file, names = True)
+
+        self.LD   = self.posterior['LD']
+        self.dLD  = self.posterior['dLD']
+        self.ra   = self.posterior['ra']
+        self.dra  = self.posterior['dra']
+        self.dec  = self.posterior['dec']
+        self.ddec = self.posterior['ddec']
+
+        if n_tot is not None:
+            self.n_tot = n_tot
         else:
-            distance_limited_events = [e for e in events]
+            if EMcp:
+                self.n_tot = 1.
+            elif gal_density is not None:
+                self.n_tot = int(gal_density*self.vol_90)
+        print('Total number of galaxies in the considered volume ({0} Mpc^3): {1}'.format(self.vol_90, self.n_tot))
+        self.potential_galaxy_hosts = catalog_weight(self.potential_galaxy_hosts, weight = 'uniform', ngal = self.n_tot)
 
-        if max_hosts is not None:
-            analysis_events = [e for e in distance_limited_events if len(e.n_hosts) < max_hosts]
-        else:
-            analysis_events = [e for e in distance_limited_events]
-
-    else:
-        event_file          = open(input_folder+"/"+events_list[event_number]+"/ID.dat","r")
-        event_id,dl,sigma   = event_file.readline().split(None)
-        ID                  = np.int(event_id)
-        dl                  = np.float64(dl)
-        sigma               = np.float64(sigma)*dl
-        event_file.close()
+    def logP(self, galaxy):
+        '''
+        galaxy must be a list with [LD, dec, ra]
+        '''
         try:
-            redshifts,d_redshifts   = np.loadtxt(input_folder+"/"+events_list[event_number]+"/ERRORBOX.dat",unpack=True)
-            redshifts               = np.atleast_1d(redshifts)
-            d_redshifts             = np.atleast_1d(d_redshifts)
-            weights                 = np.atleast_1d(len(redshifts))
-            zmin                    = np.maximum(redshifts - 10.0*d_redshifts, 0.0)
-            zmax                    = redshifts + 10.0*d_redshifts
-            analysis_events         = [Event(ID,
-                                            dl,
-                                            sigma,
-                                            1,
-                                            1,
-                                            redshifts,
-                                            d_redshifts,
-                                            weights,
-                                            zmin,
-                                            zmax,
-                                            -1,
-                                            -1,
-                                            [0])]
-            sys.stderr.write("Selecting event %s at a distance %s (error %s), hosts %d\n"%(event_id,dl,sigma,len(redshifts)))
+            gauss_LD = gaussian(galaxy[0], self.LD, self.dLD)
+            if gauss_LD == 0:
+                return -np.inf
+            pLD   = np.log(gauss_LD)
+            pra   = np.log(gaussian(galaxy[2], self.ra, self.dra))
+            pdec  = np.log(gaussian(galaxy[1], self.dec, self.ddec))
+            logpost = pLD+pra+pdec
         except:
-            sys.stderr.write("Event %s at a distance %s (error %s) has no hosts, skipping\n"%(event_id,dl,sigma))
-            exit()
+            logpost = -np.inf
+        return logpost
 
-    sys.stderr.write("Selected %d events\n"%len(analysis_events))
-    return analysis_events
+    def marg_logP(self, LD):
+        try:
+            gauss_LD = gaussian(LD, self.LD, self.dLD)
+            if gauss_LD == 0:
+                return -np.inf
+            logpost = np.log(gauss_LD)
+        except:
+            logpost = -np.inf
+        return logpost
 
-def read_EMRI_event(input_folder, event_number, max_distance = None, max_hosts = None):
-    """
-    The file ID.dat has a single row containing:
-    1-event ID
-    2-Luminosity distance dL (Mpc)
-    3-relative error on luminosity distance delta{dL}/dL (usually few %)
-    4-rough estimate of comoving volume of the errorbox
-    5-observed redshift of the true host (true cosmological, not apparent)
-    6-minimum redshift assuming the *true cosmology*
-    7-maximum redshift assuming the *true cosmology*
-    8-fiducial redshift (i.e. the redshift corresponding to the measured distance in the true cosmology)
-    9-minimum redshift adding the cosmological prior
-    10-maximum redshift adding the cosmological prior
-    11-theta offset of the host compared to LISA best sky location (in sigmas, i.e. theta-theta_best/sigma{theta})
-    12-same for phi
-    13-same for dL
-    14-theta host (rad)
-    15-phi host (rad)
-    16-dL host (Mpc)
-    17-SNR
-    18-SNR at the true distance
-    
-    The file ERRORBOX.dat has all the info you need to run the inference code. Each row is a possible host within the errorbox. Columns are:
-    1-best luminosity distance measured by LISA (the same as col 1 in ID.dat)
-    2-redshift of the host candidate (without peculiar velocity)
-    3-redshift of the host candidate (with peculiar velocity)
-    4-log_10 of the host candidate mass in solar masses
-    5-probability of the host according to the multivariate gaussian including the prior on cosmology (all rows add to 1)
-    6-theta of the host candidate
-    7-best theta measured by LISA
-    8-difference between the above two in units of LISA theta error
-    9-phi of the host candidate
-    10-best phi measured by LISA
-    11-difference between the above two in units of LISA phi error
-    12-luminosity distance of the host candidate (in the Millennium cosmology)
-    13-best dL measured by LISA
-    14-difference between the above two in units of LISA Dl error
-    """
-    all_files   = os.listdir(input_folder)
-    events_list = [f for f in all_files if 'EVENT' in f or 'event' in f]
-    pv = 0.0015 # redshift error associated to peculiar velocity value (https://arxiv.org/abs/1703.01300)
 
-    if (event_number is None):
+class Event_CBC(object):
 
-        events = []
-        for ev in events_list:
-            event_file      = open(input_folder+"/"+ev+"/ID.dat","r")
-            # 1     ,2 ,3    ,4 ,5              ,6        ,7        ,8     ,9   ,10  , , , , , , ,17 ,18
-            event_id,dl,sigma,Vc,z_observed_true,zmin_true,zmax_true,z_true,zmin,zmax,_,_,_,_,_,_,snr,snr_true = event_file.readline().split(None)
-            ID              = np.int(event_id)
-            dl              = np.float64(dl)
-            sigma           = np.float64(sigma)*dl
-            zmin            = np.float64(zmin)
-            zmax            = np.float64(zmax)
-            snr             = np.float64(snr)
-            VC              = np.float64(Vc)
-            z_true          = np.float64(z_true)
-            event_file.close()
-            try:
-                # 1    ,2      ,3  ,4   ,5      ,6    ,7         ,8     ,9  ,10      ,11  ,12     ,13       ,14
-                best_dl,zcosmo,zobs,logM,weights,theta,best_theta,dtheta,phi,best_phi,dphi,dl_host,best_dl_2,deltadl = np.loadtxt(input_folder+"/"+ev+"/ERRORBOX.dat",unpack=True)
-                redshifts       = np.atleast_1d(zobs)
-                d_redshifts     = np.ones(len(redshifts))*pv
-                weights         = np.atleast_1d(weights)
-                sigma_gw_theta  = np.mean((theta-best_theta)/dtheta)
-                sigma_gw_phi    = np.mean((phi-best_phi)/dphi)
-                if not (isinstance(dl_host, type(redshifts))):
-                    dl_host = np.atleast_1d(dl_host)
-                events.append(Event(ID,
-                                    dl,
-                                    sigma,
-                                    sigma_gw_theta,
-                                    sigma_gw_phi,
-                                    redshifts,
-                                    d_redshifts,
-                                    weights,
-                                    zmin,
-                                    zmax,
-                                    snr,
-                                    z_true,
-                                    dl_host,
-                                    VC = VC))
-                sys.stderr.write("Reading event %s at a distance %s (error %s), hosts %d\n"%(event_id,dl,sigma,len(redshifts)))
-            except:
-                sys.stderr.write("Event %s at a distance %s (error %s) has no hosts, skipping\n"%(event_id,dl,sigma))
+    def __init__(self,
+                 ID,
+                 catalog_file,
+                 density,
+                 levels_file,
+                 distance_file,
+                 area_file,
+                 EMcp         = 0,
+                 n_tot        = None,
+                 gal_density  = 0.6675): # galaxies/Mpc^3 (from Conselice et al., 2016)
 
-        if max_distance is not None:
-            distance_limited_events = [e for e in events if e.dl < max_distance]
+        if catalog_file is None:
+            raise SystemExit('No catalog provided')
+
+        self.ID                     = ID
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = catalog_file, n_tot = None)
+        self.n_hosts                = len(self.potential_galaxy_hosts)
+        self.density_model          = pickle.load(open(density, 'rb'))
+
+        self.cl      = np.genfromtxt(levels_file, names = ['CL','vol','area','LD', 'ramin', 'ramax', 'decmin', 'decmax'])
+        self.vol_90  = self.cl['vol'][np.where(self.cl['CL']==0.90)[0][0]]#-self.cl['vol'][np.where(self.cl['CL']==0.05)[0][0]]
+        self.area_90 = self.cl['area'][np.where(self.cl['CL']==0.90)[0][0]]
+        self.LDmin   = self.cl['LD'][np.where(self.cl['CL']==0.05)[0][0]]
+        self.LDmax   = self.cl['LD'][np.where(self.cl['CL']==0.95)[0][0]]
+        self.LDmean  = self.cl['LD'][np.where(self.cl['CL']==0.5)[0][0]]
+        # self.vol_90  = 4*np.pi*(self.LDmax**3-self.LDmin**3)*self.area_90/(180.*360.*3)
+        self.ramin   = self.cl['ramin'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.ramax   = self.cl['ramax'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.decmin  = self.cl['decmin'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.decmax  = self.cl['decmax'][np.where(self.cl['CL']==0.9)[0][0]]
+
+        marginalized_post = np.genfromtxt(distance_file, names = True)
+        self.interpolant = interp1d(marginalized_post['dist'], marginalized_post['post'], 'linear', fill_value = 0., bounds_error=False)
+
+        areas   = np.genfromtxt(area_file, names = True)
+        self.area = interp1d(areas['dist'], areas['area'], 'linear', fill_value = 0., bounds_error = False)
+
+
+
+
+        if n_tot is not None:
+            self.n_tot = n_tot
         else:
-            distance_limited_events = [e for e in events]
+            if EMcp:
+                self.n_tot = 1.
+            elif self.LDmean < 0: # se l'oggetto è vicino non posso assumere omogeneità
+                self.n_tot = len(self.potential_galaxy_hosts)
+            elif gal_density is not None:
+                self.n_tot = int(gal_density*self.vol_90)
+        print('Total number of galaxies in the considered volume ({0} Mpc^3): {1}'.format(self.vol_90, self.n_tot))
+        self.potential_galaxy_hosts = catalog_weight(self.potential_galaxy_hosts, weight = 'uniform', ngal = self.n_tot)
+        self.zmin = RedshiftCalculation(self.LDmin, lal.CreateCosmologicalParameters(0.3,0.7,0.3,-1,0,0))
+        self.zmax = RedshiftCalculation(self.LDmax, lal.CreateCosmologicalParameters(1,0.7,0.3,-1,0,0))
 
-        if max_hosts is not None:
-            analysis_events = [e for e in distance_limited_events if len(e.n_hosts) < max_hosts]
+    def logP(self, galaxy):
+        '''
+        galaxy must be a list with [LD, dec, ra]
+        '''
+        try:
+            logpost = logPosterior((self.density_model, np.array(galaxy)))-2.*np.log(galaxy[0])+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)
+        except:
+            logpost = -np.inf
+        return logpost
+
+    def marg_logP(self, LD):
+            marg_post    = self.interpolant(LD)
+            if marg_post > 0:
+                logpost = np.log(marg_post)-2.*np.log(LD)+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)
+            else:
+                logpost = -np.inf
+            return logpost
+
+class Event_CBC_EM(object):
+
+    def __init__(self,
+                 ID,
+                 catalog_file,
+                 event_file,
+                 levels_file,
+                 distance_file,
+                 EMcp         = 0,
+                 n_tot        = None,
+                 gal_density  = 0.6675): # galaxies/Mpc^3 (from Conselice et al., 2016)
+
+        if catalog_file is None:
+            raise SystemExit('No catalog provided')
+
+        self.ID                     = ID
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = catalog_file, n_tot = None)
+        self.n_hosts                = len(self.potential_galaxy_hosts)
+        self.samples_DL             = np.genfromtxt(event_file)
+        self.pdf                    = gaussian_kde(self.samples_DL)
+
+        self.cl      = np.genfromtxt(levels_file, names = ['CL','vol','area','LD', 'ramin', 'ramax', 'decmin', 'decmax'])
+        self.vol_90  = self.cl['vol'][np.where(self.cl['CL']==0.90)[0][0]]#-self.cl['vol'][np.where(self.cl['CL']==0.05)[0][0]]
+        self.area_90 = self.cl['area'][np.where(self.cl['CL']==0.90)[0][0]]
+        self.LDmin   = self.cl['LD'][np.where(self.cl['CL']==0.05)[0][0]]
+        self.LDmax   = self.cl['LD'][np.where(self.cl['CL']==0.95)[0][0]]
+        self.LDmean  = self.cl['LD'][np.where(self.cl['CL']==0.5)[0][0]]
+        # self.vol_90  = 4*np.pi*(self.LDmax**3-self.LDmin**3)*self.area_90/(180.*360.*3)
+        self.ramin   = self.cl['ramin'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.ramax   = self.cl['ramax'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.decmin  = self.cl['decmin'][np.where(self.cl['CL']==0.9)[0][0]]
+        self.decmax  = self.cl['decmax'][np.where(self.cl['CL']==0.9)[0][0]]
+
+        marginalized_post = np.genfromtxt(distance_file, names = True)
+        self.interpolant = interp1d(marginalized_post['dist'], marginalized_post['post'], 'linear')
+
+
+
+        if n_tot is not None:
+            self.n_tot = n_tot
         else:
-            analysis_events = [e for e in distance_limited_events]
+            if EMcp:
+                self.n_tot = 1.
+            elif self.LDmean < 0: # se l'oggetto è vicino non posso assumere omogeneità
+                self.n_tot = len(self.potential_galaxy_hosts)
+            elif gal_density is not None:
+                self.n_tot = int(gal_density*self.vol_90)
+        print('Total number of galaxies in the considered volume ({0} Mpc^3): {1}'.format(self.vol_90, self.n_tot))
+        self.potential_galaxy_hosts = catalog_weight(self.potential_galaxy_hosts, weight = 'uniform', ngal = self.n_tot)
+        self.zmin = RedshiftCalculation(self.LDmin, lal.CreateCosmologicalParameters(0.3,0.7,0.3,-1,0,0))
+        self.zmax = RedshiftCalculation(self.LDmax, lal.CreateCosmologicalParameters(2,0.7,0.3,-1,0,0))
 
-    else:
-        events_list.sort()
-        analysis_events = []
-        event_file      = open(input_folder+"/"+events_list[event_number]+"/ID.dat","r")
-        event_id,dl,sigma,Vc,z_observed_true,zmin_true,zmax_true,z_true,zmin,zmax,_,_,_,_,_,_,snr,snr_true = event_file.readline().split(None)
-        ID              = np.int(event_id)
-        dl              = np.float64(dl)
-        sigma           = np.float64(sigma)*dl
-        zmin            = np.float64(zmin)
-        zmax            = np.float64(zmax)
-        snr             = np.float64(snr)
-        VC              = np.float64(Vc)
-        z_true          = np.float64(z_true)
-        event_file.close()
-#        try:
-        best_dl,zcosmo,zobs,logM,weights,theta,best_theta,dtheta,phi,best_phi,dphi,dl_host,best_dl_2,deltadl = np.loadtxt(input_folder+"/"+events_list[event_number]+"/ERRORBOX.dat",unpack=True)
-        redshifts = np.atleast_1d(zobs)
-        d_redshifts     = np.ones(len(redshifts))*pv
-        weights         = np.atleast_1d(weights)
-        analysis_events.append(Event(ID,dl,sigma,0.0,0.0,redshifts,d_redshifts,weights,zmin,zmax,snr,z_true,dl_host,VC = VC))
-        sys.stderr.write("Selecting event %s at a distance %s (error %s), hosts %d\n"%(event_id,dl,sigma,len(redshifts)))
-#        except:
-#            sys.stderr.write("Event %s at a distance %s (error %s) has no hosts, skipping\n"%(event_id,dl,sigma))
+    def logP(self, galaxy):
+        '''
+        galaxy must be a list with [LD, dec, ra]
+        '''
+        try:
+            logpost = np.log(self.pdf(galaxy[0]))-2.*np.log(galaxy[0])+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)
+        except:
+            logpost = -np.inf
+        return logpost
 
-    sys.stderr.write("Selected %d events\n"%len(analysis_events))
-    return analysis_events
 
-def read_DEBUG_event(datafile, *args, **kwargs):
-    """
-    Parameters:
-    ==============
-    datafile: file containing the data for the hosts
-    The columns must be:
-    1-ID sorgente
-    2-Dl LISA best measurement
-    3-Delta{Dl}
-    4-redshift dell'host
-    5-unused
-    6-weight (set to 1)
-    7-z minimo considerando variazione cosmologia, delta{Dl} e peculiar vel
-    8-z max considerando variazione cosmologia, delta{Dl} e peculiar vel
-    9-z corrispondente al Dl misurato da LISA
-    """
-    event_id, dl, sigma, redshift, _, weights, zmin, zmax, redshift_inv_d   = np.loadtxt(datafile, unpack = True)
-        
+def read_TEST_event(input_folder, emcp = 0, n_tot = None, gal_density = 0.066, nevmax = None):
+    '''
+    Classe di evento costruita per finalità di test. Le distribuzioni di probabilità sono gaussiane e centrate su una galassia a scelta.
+    '''
+    all_files     = os.listdir(input_folder)
+    event_folders = []
+    for file in all_files:
+        if not '.' in file and 'event' in file:
+            event_folders.append(file)
+    event_folders.sort(key=natural_keys)
     events = []
-        
-    for i in range(len(event_id)):
-        
-        events.append(Event(event_id[i],dl[i],sigma[i],[redshift[i]],[0.0015], [weights[i]],zmin[i],zmax[i]))
+    ID = 0.
 
-    events = events[:50]
-    sys.stderr.write("Selected %d events\n"%len(events))
-    return events
+    if nevmax is not None:
+        event_folders = event_folders[:nevmax:]
+    print(event_folders)
+
+    for evfold in event_folders:
+        ID +=1
+        catalog_file  = input_folder+evfold+'/galaxy_0.9.txt'
+        event_file    = input_folder+evfold+'/posterior.txt'
+        levels_file   = input_folder+evfold+'/confidence_region.txt'
+        events.append(Event_test(ID, catalog_file, event_file, levels_file, EMcp = emcp, gal_density=gal_density))
+    return np.array(events)
+
+def read_CBC_event(input_folder, emcp = 0, n_tot = None, gal_density = 0.6675, nevmax = None):
+    all_files     = os.listdir(input_folder)
+    event_folders = []
+    for file in all_files:
+        if not '.' in file and 'event' in file:
+            event_folders.append(file)
+    events = []
+    ID = 0.
+    for evfold in event_folders:
+        ID +=1
+        catalog_file  = input_folder+evfold+'/galaxy_0.9_-1.000.txt'
+        event_file    = input_folder+evfold+'/dpgmm_density.p'
+        levels_file   = input_folder+evfold+'/confidence_levels.txt'
+        distance_file = input_folder+evfold+'/distance_map.txt'
+        area_file     = input_folder+evfold+'/diff_area.txt'
+        events.append(Event_CBC(ID, catalog_file, event_file, levels_file, distance_file, area_file, EMcp = emcp, gal_density=gal_density))
+    return np.array(events)
+
+def read_CBC_EM_event(input_folder, emcp = 0, n_tot = None, gal_density = 0.6675, nevmax = None):
+    all_files     = os.listdir(input_folder)
+    event_folders = []
+    for file in all_files:
+        if not '.' in file and 'event' in file:
+            event_folders.append(file)
+    events = []
+    ID = 0.
+    for evfold in event_folders:
+        ID +=1
+        catalog_file  = input_folder+evfold+'/galaxy_0.9.txt'
+        event_file    = input_folder+evfold+'/samples_DL.txt'
+        levels_file   = input_folder+evfold+'/confidence_levels.txt'
+        distance_file = input_folder+evfold+'/distance_map.txt'
+        events.append(Event_CBC_EM(ID, catalog_file, event_file, levels_file, distance_file, EMcp = emcp, gal_density=gal_density))
+    return np.array(events)
+
+
+
+
 
 def read_event(event_class,*args,**kwargs):
-    if   (event_class == "MBH"): return read_MBH_event(*args, **kwargs)
-    elif (event_class == "EMRI"): return read_EMRI_event(*args, **kwargs)
-    elif (event_class == "sBH"): return read_EMRI_event(*args, **kwargs)
-    elif (event_class == "DEBUG"): return read_DEBUG_event(*args, **kwargs)
+
+    if event_class == "TEST": return read_TEST_event(*args, **kwargs)
+    if event_class == "CBC": return read_CBC_event(*args, **kwargs)
+    if event_class == "CBC_EM": return read_CBC_EM_event(*args, **kwargs)
     else:
         print("I do not know the class %s, exiting\n"%event_class)
         exit(-1)
-
-if __name__=="__main__":
-    input_folder = '/Users/wdp/repositories/LISA/LISA_BHB/errorbox_data/EMRI_data/EMRI_M1_GAUSS'
-    event_number = None
-    e = read_event("EMRI",input_folder, event_number)
-    print(e)
