@@ -1,7 +1,7 @@
 import numpy as np
 import sys
 import os
-from galaxies import *
+from cosmolisa.galaxy import *
 import lal
 from volume_reconstruction.dpgmm.dpgmm import *
 from volume_reconstruction.utils.utils import *
