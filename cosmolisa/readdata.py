@@ -149,7 +149,7 @@ class Event_CBC(object):
             raise SystemExit('No catalog provided')
 
         self.ID                     = ID
-        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = catalog_file, n_tot = None)
+        self.potential_galaxy_hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = catalog_file, n_tot = 1.)
         self.n_hosts                = len(self.potential_galaxy_hosts)
         self.density_model          = pickle.load(open(density, 'rb'))
 
