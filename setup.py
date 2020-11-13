@@ -72,6 +72,13 @@ ext_modules=[
                       library_dirs = [lal_libs],
                       extra_compile_args=["-O3","-ffast-math"],
                     include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
+                      ),
+            Extension("cosmolisa.readdata",
+                      sources=["cosmolisa/readdata.py"],
+                      libraries=["m","lal"],
+                      library_dirs = [lal_libs],
+                      extra_compile_args=["-O3","-ffast-math"],
+                      include_dirs=[numpy.get_include(),lal_includes,"cosmolisa"]
                       )
              ]
 
