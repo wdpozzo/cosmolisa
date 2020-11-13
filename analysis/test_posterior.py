@@ -5,10 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cosmolisa.cosmology as cs
 from cosmolisa.volumereconstruction import VolRec
+from cosmolisa.readdata import *
 import lal
 import sys
 import os
 from time import perf_counter
+import ray
+import configparser
 
 def weighted_quantile(values, quantiles, sample_weight=None,
                       values_sorted=False, old_style=False):
@@ -51,8 +54,8 @@ def computeloglikelihood(e, hi, opts):
     omega = cs.CosmologicalParameters(hi, 0.3,0.7,-1,0)
     hosts_file = opts['data']+'galaxy_0.9_%.3f.txt' %(hi)
     cat_file   = opts['data']+'catalog_%.3f.txt' %(hi)
-    hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = hosts_file, n_tot = None)
-    cat   = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = cat_file, n_tot = None)
+    hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = hosts_file, n_tot = 1.)
+    cat   = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = cat_file, n_tot = 1.)
     m_th = float(opts['m_th'])
     logL = lk.logLikelihood_single_event(hosts, cat, e, omega, m_th, completeness_file = opts['out']+'completeness_fraction_'+str(e.ID)+'.txt')
     omega.DestroyCosmologicalParameters()
@@ -60,21 +63,26 @@ def computeloglikelihood(e, hi, opts):
 
 if __name__ == '__main__':
     
+    config = configparser.ConfigParser()
     config.read('config.ini')
     opts = config['DEFAULT']
     ray.init()
     
     init_time = perf_counter()
 
-    events = readdata.read_event(opts['event_class'], input_folder = opts['data'], emcp = int(opts['EMcp']), nevmax = opts['nevmax'])
+    events = read_event(opts['event_class'], input_folder = opts['data'], emcp = int(opts['EMcp']), nevmax = opts['nevmax'])
 
     if opts['out'] == None:
         opts['out'] = opts['data'] + 'output/'
         if not os.path.exists(opts['out']):
             os.mkdir(opts['out'])
-
-    h = np.linspace(opts['hmin'], opts['hmax'], opts['npoints'])
-    dh = (opts['hmax']-opts['hmin'])/opts['npoints']
+            
+            
+    hmin = float(opts['hmin'])
+    hmax = float(opts['hmax'])
+    npoints = int(opts['npoints'])
+    h = np.linspace(hmin, hmax, npoints)
+    dh = (hmax - hmin)/npoints
 
     evcounter = 0
     likelihood_list = []
