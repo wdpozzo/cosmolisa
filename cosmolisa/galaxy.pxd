@@ -15,3 +15,7 @@ cdef class Galaxy:
     cdef public double dz
     cdef public double weight
     cdef public bint is_detected
+    
+cpdef object read_galaxy_catalog(dict limits, str catalog_file = *, double n_tot = *)
+cdef bint isinbound(Galaxy galaxy, dict limits)
+cdef object catalog_weight(object catalog, str weight = *, double ngal = *)
