@@ -33,6 +33,10 @@ cdef class SchechterMagFunctionInternal:
         self.mmax = mmax
         self.norm = -1
         self.norm = self.normalise()
+        
+    def __reduce__(self):
+        return(SchechterMagFunctionInternal, (self.Mstar, self.alpha, self.mmin, self.mmax, self.phistar))
+        
     def __call__(self, double m):
         return self._evaluate(m)
 
