@@ -14,12 +14,14 @@ from cosmolisa.schechter import *
 import random as rd
 from scipy.stats import poisson
 from scipy.integrate import quad
+import ray
 
 def appM(z, M, omega):
-    return M + 5.0*np.log10(1e5*lal.LuminosityDistance(omega,z)) - 5.*np.log10(omega.h)
+    return M + 5.0*np.log10(1e5*omega.LuminosityDistance(z)) - 5.*np.log10(omega.h)
+    
 
 def absM(z, m, omega):
-    return m - 5.0*np.log10(1e5*lal.LuminosityDistance(omega,z)) + 5.*np.log10(omega.h)
+    return m - 5.0*np.log10(1e5*omega.LuminosityDistance(z)) + 5.*np.log10(omega.h)
 
 def gaussian(x, x0, sigma):
     return np.exp(-(x-x0)**2/(2*sigma**2))/(sigma*np.sqrt(2*np.pi))
@@ -41,18 +43,18 @@ def RedshiftCalculation(LD, omega, zinit=0.3, limit = 0.0001):
     znew = zinit - (LD_test - LD)/dLumDist(zinit,omega)
     return RedshiftCalculation(LD, omega, zinit = znew)
 
-def generate_galaxy(ipar,Schechter, omega, i, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host):
+def generate_galaxy(ipar, i, Schechter, omega, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host):
     ID_try = i
     ra_try = rd.uniform(0, 2*np.pi)
     dec_try = np.arcsin(rd.uniform(np.sin(-np.pi/2.), np.sin(np.pi/2.)))
     while 1:
         z_temp = rd.uniform(ipar['z_min'], ipar['z_max'])
-        if rd.random()*ipar['dCoVolMax'] < lal.ComovingVolumeElement(z_temp,omega):
+        if rd.random()*ipar['dCoVolMax'] < omega.ComovingVolumeElement(z_temp):
             z_cosmo_try = z_temp
             break
     z_pec = rd.gauss(0, 0.0001)
     z_try = z_cosmo_try+z_pec
-    DL_try = lal.LuminosityDistance(omega,z_cosmo_try)
+    DL_try = omega.LuminosityDistance(z_cosmo_try)
     while 1:
         B_temp = rd.uniform(ipar['M_min'], ipar['M_max'])
         if rd.random()*ipar['pM_max'] < Schechter(B_temp):
@@ -70,13 +72,12 @@ def generate_galaxy(ipar,Schechter, omega, i, ID,ra,dec,z,z_cosmo,DL,absB,dB,app
         dB.append(0.5)
         appB.append(appM(z_cosmo_try, absB_try, omega))
         host.append(0)
-
     return
 
 if __name__ == '__main__':
-
+    
     n_ev = 0
-    omega = lal.CreateCosmologicalParameters(0.697, 0.306, 0.694, -1, 0, 0)
+    omega = cs.CosmologicalParameters(0.697, 0.306, 0.694, -1, 0)
     M_max    = -6.
     M_min    = -23.
 
@@ -89,12 +90,12 @@ if __name__ == '__main__':
         os.mkdir(output)
     numberdensity = 0.66
 
-    z_min = 0.0001
-    z_max = 0.02
+    z_min = 0.07
+    z_max = 0.14
 
-    dCoVolMax = lal.ComovingVolumeElement(z_max,omega)
+    dCoVolMax = omega.ComovingVolumeElement(z_max)
     pM_max    = Schechter(M_max)
-    CoVol = lal.ComovingVolume(omega, z_max) - lal.ComovingVolume(omega, z_min)
+    CoVol = omega.ComovingVolume(z_max) - omega.ComovingVolume(z_min)
     print('CoVol=', CoVol)
     ev_density = n_ev/CoVol
     np.savetxt(output+'evdensity.txt', np.array([ev_density]).T, header = 'evdensity')
@@ -136,7 +137,7 @@ if __name__ == '__main__':
 
         sys.stdout.write('{0} out of {1}\r'.format(i+1, N_tot))
         sys.stdout.flush()
-        generate_galaxy(ipar, Schechter, omega, i, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host)
+        generate_galaxy(ipar, i, Schechter, omega, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host))
 
     for i in range(n_ev):
         while 1:
@@ -182,7 +183,7 @@ if __name__ == '__main__':
 
     for zi in app_z:
         #app_CoVol.append(lal.ComovingVolumeElement(zi, omega)/CoVol)
-        app_CoVol.append(numberdensity*lal.ComovingVolumeElement(zi,omega)*quad(Schechter, M_min, absM(zi, m_th, omega))[0])
+        app_CoVol.append(numberdensity*omega.ComovingVolumeElement(zi)*quad(Schechter, M_min, absM(zi, m_th, omega))[0])
     
     app_CoVol = np.array(app_CoVol)
     app_CoVol /= app_CoVol.sum()*(app_z[2]-app_z[1])
@@ -199,7 +200,7 @@ if __name__ == '__main__':
         I = 0.
         for zi in app_z:
             if appM(zi, Mi, omega) < m_th:
-                I += lal.ComovingVolumeElement(zi, omega)*numberdensity*Schechter(Mi)
+                I += omega.ComovingVolumeElement(zi)*numberdensity*Schechter(Mi)
         app_pM.append(I*(app_z[2]-app_z[1]))
     app_pM = np.array(app_pM)
     app_pM /= app_pM.sum()*(app_M[2]-app_M[1])
