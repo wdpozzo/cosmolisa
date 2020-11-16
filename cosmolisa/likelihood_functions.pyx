@@ -104,7 +104,7 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
             I_M = -INFINITY
             for j in range(n):
                 if (M_view[j] > M_th) and (M_view[j] < M_cutoff):
-                    dI_M = log(Schechter(M_view[j], z_view[i], omega)) + log(dM)
+                    dI_M = log(Schechter(M_view[j])) + log(dM)
                 I_M = log_add(I_M, dI_M)
             
             dI_z = p_post+p_emission+I_M+prior_galaxy+p_z_cosmo-prior_wave+log(dz)
@@ -197,7 +197,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
             I_M = -INFINITY
             for j in range(n):
                 if (M_view[j] > M_th) and (M_view[j] < M_cutoff):
-                    dI_M = log(Schechter(M_view[j], z_view[i], omega)) + log(dM)
+                    dI_M = log(Schechter(M_view[j])) + log(dM)
                 I_M = log_add(I_M, dI_M)
             
             dI_z = I_M+p_z_cosmo+log(dz)
@@ -268,7 +268,7 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
         I_M = -INFINITY
         for j in range(n):
             if (M_view[j] > M_cutoff):
-                dI_M = log(Schechter(M_view[j], z_view[i], omega)) + log(dM)
+                dI_M = log(Schechter(M_view[j])) + log(dM)
             I_M = log_add(I_M, dI_M)
             
         dI_z = I_M+p_z_cosmo+log(dz)
@@ -290,27 +290,48 @@ cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, str distribution = '
         print('WARNING: binomial not implemented yet')
         return 0
 
-cdef unsigned int ComputeEmitters(unsigned int N_tot, object Schechter, double M_cutoff, double M_min):
+cdef unsigned int ComputeEmitters(unsigned int N_tot, object Schechter, double M_cutoff, double M_min, double M_max, int n = 1000):
     '''
     Eq. 8
     Computes the expected number of emitting galaxies
     '''
-    return int(N_tot*(quad(Schechter, M_min, M_cutoff)[0]))
+    
+    cdef unsigned int i
+    cdef double I=0.
+    
+    cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n, dtype = np.float64)
+    cdef double[::1] M_view = M
+    cdef double dM = (M_max - M_min)/n
+    
+    for i in range(n):
+        I += Schechter(M_view[i])*dM
+    
+    return int(I*N_tot)
 
-cdef unsigned int ComputeBright(double n, CosmologicalParameters omega, object Schechter, double m_th, double zmin, double zmax, double M_min):
+cdef unsigned int ComputeBright(double numberdensity, CosmologicalParameters omega, object Schechter, double m_th, double zmin, double zmax, double M_min, double M_max, int n = 1000):
     '''
     Eq. 9
     Computes the expected number of bright galaxies
     '''
-        
-    return int(n*dblquad(integrand, zmin, zmax, M_min, upperbound, args = (omega, Schechter))[0])
     
-
-cdef double integrand(double M, double z, CosmologicalParameters omega, object Schechter):
-    return omega.ComovingVolumeElement(z)*Schechter(M)
-        
-cdef object upperbound(double z, double m_th, CosmologicalParameters omega):
-    return lambda z: absM(z,m_th,omega)
+    cdef unsigned int i, j
+    cdef double Mth, I=0.
+    
+    cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n, dtype = np.float64)
+    cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n, dtype = np.float64)
+    cdef double[::1] z_view = z
+    cdef double[::1] M_view = M
+    cdef double dz = (zmax - zmin)/n
+    cdef double dM = (M_max - M_min)/n
+    
+    for i in range(n):
+        Mth = absM(z_view[i], m_th, omega)
+        for j in range(n):
+            if M_view[j] < Mth:
+                I += numberdensity*omega.ComovingVolumeElement(z_view[i])*Schechter(M_view[j])*dM*dz
+    
+    return int(I)
+    
 
 cdef inline double absM(double z, double m, CosmologicalParameters omega):
     return m - 5.0*log10(1e5*omega.LuminosityDistance(z)) + 5.*log10(omega.h)
