@@ -13,6 +13,8 @@ cdef class CosmologicalParameters:
         self.w0 = w0
         self.w1 = w1
         self._LALCosmologicalParameters = XLALCreateCosmologicalParameters(self.h,self.om,self.ol,self.w0,self.w1,0.0)
+    def __reduce__(self):
+        return (CosmologicalParameters, (self.h, self.om, self.ol, self.w0, self.w1))
 
     cdef double _HubbleParameter(self, double z) nogil:
         return XLALHubbleParameter(z, self._LALCosmologicalParameters)
