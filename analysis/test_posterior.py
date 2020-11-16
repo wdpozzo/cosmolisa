@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import cosmolisa.cosmology as cs
 from cosmolisa.volumereconstruction import VolRec
 from cosmolisa.readdata import *
+import cosmolisa.likelihood as lk
 import lal
 import sys
 import os
@@ -57,7 +58,8 @@ def computeloglikelihood(e, hi, opts):
     hosts = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = hosts_file, n_tot = 1.)
     cat   = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = cat_file, n_tot = 1.)
     m_th = float(opts['m_th'])
-    logL = lk.logLikelihood_single_event(hosts, cat, e, omega, m_th, completeness_file = opts['out']+'completeness_fraction_'+str(e.ID)+'.txt')
+    n = float(opts['n'])
+    logL = lk.logLikelihood_single_event(hosts, cat, m_th, n, e, omega)
     omega.DestroyCosmologicalParameters()
     return logL
 
