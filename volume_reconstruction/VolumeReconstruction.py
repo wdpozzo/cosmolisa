@@ -707,7 +707,7 @@ def VolRec(input, output, bins, dmax, event_id, nthreads = None, maxstick = 16, 
         (k,) = np.where(dpgmm.ranked_probability < threshold)
         path = os.path.join(output,'catalog_%.3f.txt') %(dpgmm.h)
         np.savetxt(path,
-                   np.array([np.degrees(dpgmm.ranked_ra[k]),np.degrees(dpgmm.ranked_dec[k]),dpgmm.ranked_dl[k],dpgmm.ranked_z[k],dpgmm.ranked_B[k], dpgmm.ranked_dB[k], dpgmm.ranked_Babs[k], dpgmm.peculiarmotion[k],dpgmm.ranked_probability[k]]).T,
+                   np.array([np.degrees(dpgmm.ranked_ra[:]),np.degrees(dpgmm.ranked_dec[:]),dpgmm.ranked_dl[:],dpgmm.ranked_z[:],dpgmm.ranked_B[:], dpgmm.ranked_dB[:], dpgmm.ranked_Babs[:], dpgmm.peculiarmotion[:],dpgmm.ranked_probability[:]]).T,
                    fmt='%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t%.9f\t',
                    header='ra\tdec\tDL\tz\tB\tB_err\tB_abs\tpec.mot.corr.\tlogposterior')
 
