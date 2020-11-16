@@ -20,7 +20,7 @@ def logLikelihood_single_event(list hosts,
                                const double number_density,
                                object event,
                                CosmologicalParameters omega,
-                               const double zmin = 0.0,
+                               const double zmin = 0.0001,
                                const double zmax = 1.0,
                                const double M_max = -6.,
                                const double M_min = -23.,
@@ -111,8 +111,8 @@ cdef _logLikelihood_single_event(list hosts,
 
     CoVol     = omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin)
     N_tot     = int(CoVol*number_density)
-    N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min)
-    N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min)
+    N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min, M_max)
+    N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min, M_max)
     N_dark    = N_tot - N_obs
     N_dark_em = N_em - N_obs
     N_noem    = N_tot - N_em
