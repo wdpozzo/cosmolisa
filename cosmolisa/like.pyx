@@ -139,13 +139,16 @@ cdef _logLikelihood_single_event(list hosts,
     sum_no_post = np.sum(p_no_post)
     for i in range(N_h):
         addends_view[i] = sum_no_post - p_no_post_view[i] + p_with_post_view[i] + N_dark_em*p_no_post_dark + N_noem*p_noem
+        # print('h = %f, a = %f' % (omega.h, addends[i]))
     dark_term = sum_no_post + (N_dark_em-1)*p_no_post_dark + p_with_post_dark + N_noem*p_noem
+    # print('h = %f, d = %f' %(omega.h, dark_term))
     
     for i in range(N_h):
         logL = log_add(logL, addends_view[i])
     for i in range(N_dark_em):
         logL = log_add(logL, dark_term)
     
+    # print('h = %.3f,N_obs = %d, p_obs_post = %f, p_obs_no = %f, N_b = %d, N_dark_em = %d, p_dark_post = %f, p_dark_no = %f, N_noem = %d, p_noem = %f, p_N_obs = %f' % (omega.h, N_obs, p_with_post[0], p_no_post[0], N_b, N_dark_em, p_with_post_dark, p_no_post_dark, N_noem, p_noem, prob_Nobs(N_obs, N_b)))
     logL += prob_Nobs(N_obs, N_b)
     
     return logL
