@@ -193,7 +193,7 @@ class Event_CBC(object):
         galaxy must be a list with [LD, dec, ra]
         '''
         try:
-            logpost = logPosterior((self.density_model, np.array(galaxy)))-2.*np.log(galaxy[0])+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)
+            logpost = logPosterior((self.density_model, np.array(galaxy)))#-2.*np.log(galaxy[0])+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)-np.log(4*np.pi)
         except:
             logpost = -np.inf
         return logpost
@@ -201,7 +201,7 @@ class Event_CBC(object):
     def marg_logP(self, LD):
             marg_post    = self.interpolant(LD)
             if marg_post > 0:
-                logpost = np.log(marg_post)-2.*np.log(LD)+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)
+                logpost = np.log(marg_post)#-2.*np.log(LD)+np.log(self.LDmax**3-self.LDmin**3)-np.log(3)-np.log(4*np.pi)
             else:
                 logpost = -np.inf
             return logpost
