@@ -85,13 +85,13 @@ if __name__ == '__main__':
 
     Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, omega.h)
     # output = '/path/to/folder/'
-    output = '/Users/stefanorinaldi/Desktop/cat_test/'
+    output = '/Users/stefanorinaldi/Documents/Sim/cat_test/'
     if not os.path.exists(output):
         os.mkdir(output)
-    numberdensity = 0.66
+    numberdensity = 0.066
 
-    z_min = 0.07
-    z_max = 0.14
+    z_min = 0.0005
+    z_max = 0.22
 
     dCoVolMax = omega.ComovingVolumeElement(z_max)
     pM_max    = Schechter(M_max)
@@ -137,7 +137,7 @@ if __name__ == '__main__':
 
         sys.stdout.write('{0} out of {1}\r'.format(i+1, N_tot))
         sys.stdout.flush()
-        generate_galaxy(ipar, i, Schechter, omega, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host))
+        generate_galaxy(ipar, i, Schechter, omega, ID,ra,dec,z,z_cosmo,DL,absB,dB,appB,host)
 
     for i in range(n_ev):
         while 1:
