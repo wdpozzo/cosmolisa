@@ -1,7 +1,7 @@
 from cosmolisa.galaxy cimport Galaxy
 from cosmolisa.cosmology cimport CosmologicalParameters
 
-cdef double log_add(double x, double y) nogil
+cdef double log_add(double x, double y)
 
 cdef double ComputeLogLhWithPost(Galaxy gal,
                                     object event,
@@ -14,7 +14,7 @@ cdef double ComputeLogLhWithPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    sigma_z = *)
+                                    double sigma_z = *)
                                     
 cdef double _ComputeLogLhWithPost(Galaxy gal,
                                     object event,
@@ -27,7 +27,7 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    sigma_z)
+                                    double sigma_z)
                                     
 cdef double ComputeLogLhNoPost(Galaxy gal,
                                     object event,
@@ -39,7 +39,7 @@ cdef double ComputeLogLhNoPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    sigma_z = *)
+                                    double sigma_z = *)
                                     
 cdef double _ComputeLogLhNoPost(Galaxy gal,
                                     object event,
@@ -51,7 +51,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    sigma_z)
+                                    double sigma_z)
 
 cdef double ComputeLogLhNoEmission(Galaxy gal,
                                     object event,
@@ -61,7 +61,8 @@ cdef double ComputeLogLhNoEmission(Galaxy gal,
                                     double zmax,
                                     double M_cutoff,
                                     double M_max,
-                                    double M_min)
+                                    double M_min,
+                                    double m_th)
                                     
 cdef double _ComputeLogLhNoEmission(Galaxy gal,
                                     object event,
@@ -71,7 +72,8 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
                                     double zmax,
                                     double M_cutoff,
                                     double M_max,
-                                    double M_min)
+                                    double M_min,
+                                    double m_th)
 
 cdef unsigned int ComputeEmitters(unsigned int N_tot, object Schechter, double M_cutoff, double M_min, double M_max, int n = *)
 
@@ -79,3 +81,9 @@ cdef unsigned int ComputeBright(double numberdensity, CosmologicalParameters ome
 
 
 cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, str distribution = *)
+
+cdef double _LumDist(double z, CosmologicalParameters omega)
+
+cdef double _dLumDist(double z, CosmologicalParameters omega)
+
+cdef double ComputeRedshift(double LD, CosmologicalParameters omega, double zinit = *, double limit = *)
