@@ -59,7 +59,7 @@ def computeloglikelihood(e, hi, opts):
     cat   = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = cat_file, n_tot = 1.)
     m_th = float(opts['m_th'])
     n = float(opts['n'])
-    logL = lk.logLikelihood_single_event(hosts, cat, m_th, n, e, omega)
+    logL = lk.logLikelihood_single_event(hosts, cat, m_th, n, e, omega, zmin = 0.0005, zmax = 0.22, DL_max = 700)
     omega.DestroyCosmologicalParameters()
     return logL
 
@@ -114,24 +114,28 @@ if __name__ == '__main__':
     joint_likelihood = np.zeros(len(likelihood))
     for like in likelihood_list:
         if np.isfinite(like.sum()):
-            joint += like
+            joint_likelihood += like
     # save joint likelihood
-    joint = np.exp(joint - np.log(np.sum(np.exp(joint - joint.max()))*dh) - joint.max())
-    np.savetxt(opts['out']+'joint_likelihood.txt', np.array([h, joint]).T, header = 'h\t\tlogL')
+    joint_likelihood = np.exp(joint_likelihood - np.log(np.sum(np.exp(joint_likelihood - joint_likelihood.max()))*dh) - joint_likelihood.max())
+    np.savetxt(opts['out']+'joint_likelihood.txt', np.array([h, joint_likelihood]).T, header = 'h\t\tlogL')
     
     # relevant quantities (68 & 95% credbile intervals and maximum a posteriori)
-    percentiles = weighted_quantile(h*100, [0.05, 0.16, 0.50, 0.84, 0.95], sample_weight = np.exp(joint))
-    hmax = 100*h[np.where(joint == joint.max())]
+    percentiles = weighted_quantile(h*100, [0.05, 0.16, 0.50, 0.84, 0.95], sample_weight = np.exp(joint_likelihood))
+    hmax = 100*h[np.where(joint_likelihood == joint_likelihood.max())]
     percentiles[2] = hmax
     
     # maquillage stuff
     thickness   = [0.4,0.5,1,0.5,0.4]
     styles      = ['dotted', 'dashed', 'solid', 'dashed','dotted']
-    title = '$H_0 = '+results+'\ km\\cdot s^{-1}\\cdot Mpc^{-1}$'
+    results     = str(percentiles[2])+'^{+'+str(percentiles[3]-percentiles[2])+'}_{-'+str(percentiles[2]-percentiles[1])+'}'
+    title       = '$H_0 = '+results+'\ km\\cdot s^{-1}\\cdot Mpc^{-1}$'
     
     # plotting
+    
+    # Likelihood
     fig = plt.figure()
     ax  = fig.add_subplot(111)
+    fig.suptitle(title)
     # single event likelihood
     for l in likelihood_list:
         ax.plot(h*100., l/100., linewidth = 0.3)
@@ -140,11 +144,30 @@ if __name__ == '__main__':
     for p, t, s in zip(percentiles, thickness, styles):
         ax.axvline(p, ls = s, linewidth = t, color = 'darkblue')
     # joint likelihood
-    ax.plot(h*100., joint/100.)
+    ax.plot(h*100., joint_likelihood/100.)
     # axes
     ax.set_xlabel('$H_0\ [km\\cdot s^{-1}\\cdot Mpc^{-1}]$')
     ax.set_ylabel('$p(H_0)$')
     fig.savefig(opts['out']+'H0_posterior.pdf', bbox_inches='tight')
+    
+    # Log likelihood
+    
+    fig_log = plt.figure()
+    ax_log  = fig_log.add_subplot(111)
+    fig_log.suptitle(title)
+    # single event likelihood
+    for l in likelihood_list:
+        ax_log.plot(h*100., l/100., linewidth = 0.3)
+    # values
+    ax_log.axvline(float(opts['trueh'])*100, linewidth = 0.5, color = 'r')
+    for p, t, s in zip(percentiles, thickness, styles):
+        ax_log.axvline(p, ls = s, linewidth = t, color = 'darkblue')
+    # joint likelihood
+    ax_log.plot(h*100., np.array(likelihood_unnormed))
+    # axes
+    ax_log.set_xlabel('$H_0\ [km\\cdot s^{-1}\\cdot Mpc^{-1}]$')
+    ax_log.set_ylabel('$p(H_0)$')
+    fig_log.savefig(opts['out']+'H0_logposterior.pdf', bbox_inches='tight')
     
     # duration
     end_time = perf_counter()
