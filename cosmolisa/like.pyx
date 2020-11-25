@@ -21,10 +21,11 @@ def logLikelihood_single_event(list hosts,
                                object event,
                                CosmologicalParameters omega,
                                const double zmin = 0.0001,
-                               const double zmax = 1.0,
+                               double zmax = 1.0,
                                const double M_max = -6.,
                                const double M_min = -23.,
-                               const double M_cutoff = -15.):
+                               const double M_cutoff = -15.,
+                               const double DL_max = -1.):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
@@ -40,9 +41,10 @@ def logLikelihood_single_event(list hosts,
     zmax: :obj:'numpy.double': maximum redshift
     M_max: :obj:'numpy.double': maximum absolute magnitude
     M_min: :obj:'numpy.double': minimum absolute magnitude
-    M_cutoff: :obj: 'numpy.double': cutoff magnitude
+    M_cutoff: :obj:'numpy.double': cutoff magnitude
+    DL_max: :obj:'numpy.double': maximum luminosity distance (from detector sensitivity?). If >0 overwrites zmax
     """
-    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax, M_max, M_min, M_cutoff)
+    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax, M_max, M_min, M_cutoff, DL_max)
     
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -55,10 +57,11 @@ cdef _logLikelihood_single_event(list hosts,
                                  object event,
                                  CosmologicalParameters omega,
                                  const double zmin,
-                                 const double zmax,
+                                 double zmax,
                                  const double M_max,
                                  const double M_min,
-                                 const double M_cutoff):
+                                 const double M_cutoff,
+                                 const double DL_max):
 
 #=====================
 #
@@ -78,11 +81,11 @@ cdef _logLikelihood_single_event(list hosts,
 #   Galaxy numbers
     cdef unsigned int N_h   = len(hosts)
     cdef unsigned int N_obs = len(catalog)
-    cdef unsigned int N_tot, N_dark, N_dark_em, N_noem, N_b, N_em
+    cdef unsigned int N_tot, N_dark, N_dark_em, N_noem, N_b, N_em, N_obs_inside = 0
 #   Probabilities
     cdef double p_dark_with_post, p_dark_no_post
     cdef double p_noem
-    cdef np.ndarray[double, ndim = 1, mode = "c"] p_with_post = np.zeros(N_obs, dtype = np.float64)
+    cdef np.ndarray[double, ndim = 1, mode = "c"] p_with_post = np.zeros(N_h, dtype = np.float64)
     cdef np.ndarray[double, ndim = 1, mode = "c"] p_no_post = np.zeros(N_obs, dtype = np.float64)
     cdef double[::1] p_with_post_view = p_with_post
     cdef double[::1] p_no_post_view   = p_no_post
@@ -108,14 +111,13 @@ cdef _logLikelihood_single_event(list hosts,
 #   Computing numbers and quantities
 
     Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
+    if DL_max > 0.:
+        zmax = ComputeRedshift(DL_max, omega)
 
     CoVol     = omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin)
     N_tot     = int(CoVol*number_density)
     N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min, M_max)
     N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min, M_max)
-    N_dark    = N_tot - N_obs
-    N_dark_em = N_em - N_obs
-    N_noem    = N_tot - N_em
     
 #   Coherence check
     
@@ -126,29 +128,40 @@ cdef _logLikelihood_single_event(list hosts,
 
 #   p(D|Gi)p(Gi)
     for i in range(N_h):
-        p_with_post_view[i] = ComputeLogLhWithPost(hosts[i], event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
+        if catalog[i].z < zmax:
+            p_with_post_view[i] = ComputeLogLhWithPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
+        else:
+            p_with_post_view[i] = -INFINITY
     p_with_post_dark = ComputeLogLhWithPost(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
     
 #   p(Gi)
     for i in range(N_obs):
-        p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
+        if catalog[i].z < zmax:
+            N_obs_inside += 1
+            p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
     p_no_post_dark = ComputeLogLhNoPost(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
-    p_noem         = ComputeLogLhNoEmission(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, M_max, M_min)
+    p_noem         = ComputeLogLhNoEmission(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, M_max, M_min, m_th)
+    
+#   Computing galaxies within zmax
+    
+    N_dark    = N_tot - N_obs_inside
+    N_dark_em = N_em - N_obs_inside
+    N_noem    = N_tot - N_em
     
 #   Sum
+
     sum_no_post = np.sum(p_no_post)
     for i in range(N_h):
         addends_view[i] = sum_no_post - p_no_post_view[i] + p_with_post_view[i] + N_dark_em*p_no_post_dark + N_noem*p_noem
-        # print('h = %f, a = %f' % (omega.h, addends[i]))
     dark_term = sum_no_post + (N_dark_em-1)*p_no_post_dark + p_with_post_dark + N_noem*p_noem
-    # print('h = %f, d = %f' %(omega.h, dark_term))
     
     for i in range(N_h):
         logL = log_add(logL, addends_view[i])
     for i in range(N_dark_em):
         logL = log_add(logL, dark_term)
     
-    # print('h = %.3f,N_obs = %d, p_obs_post = %f, p_obs_no = %f, N_b = %d, N_dark_em = %d, p_dark_post = %f, p_dark_no = %f, N_noem = %d, p_noem = %f, p_N_obs = %f' % (omega.h, N_obs, p_with_post[0], p_no_post[0], N_b, N_dark_em, p_with_post_dark, p_no_post_dark, N_noem, p_noem, prob_Nobs(N_obs, N_b)))
-    logL += prob_Nobs(N_obs, N_b)
+    logL += prob_Nobs(N_obs_inside,N_b)
+    
+    print('h = %.3f: done' % (omega.h))
     
     return logL
