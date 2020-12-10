@@ -20,12 +20,14 @@ def logLikelihood_single_event(list hosts,
                                const double number_density,
                                object event,
                                CosmologicalParameters omega,
-                               const double zmin = 0.0001,
+                               double zmin = 0.0001,
                                double zmax = 1.0,
                                const double M_max = -6.,
                                const double M_min = -23.,
                                const double M_cutoff = -15.,
-                               const double DL_max = -1.):
+                               const double DL_min = -1.,
+                               const double DL_max = -1.,
+                               const double CoVolMax = -1.):
     """
     Likelihood function for a single GW event.
     Loops over all possible hosts to accumulate the likelihood
@@ -44,7 +46,7 @@ def logLikelihood_single_event(list hosts,
     M_cutoff: :obj:'numpy.double': cutoff magnitude
     DL_max: :obj:'numpy.double': maximum luminosity distance (from detector sensitivity?). If >0 overwrites zmax
     """
-    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax, M_max, M_min, M_cutoff, DL_max)
+    return _logLikelihood_single_event(hosts, catalog, m_th, number_density, event, omega, zmin, zmax, M_max, M_min, M_cutoff, DL_min, DL_max, CoVolMax)
     
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -56,12 +58,14 @@ cdef _logLikelihood_single_event(list hosts,
                                  const double number_density,
                                  object event,
                                  CosmologicalParameters omega,
-                                 const double zmin,
+                                 double zmin,
                                  double zmax,
                                  const double M_max,
                                  const double M_min,
                                  const double M_cutoff,
-                                 const double DL_max):
+                                 double DL_min,
+                                 double DL_max,
+                                 const double CoVolMax):
 
 #=====================
 #
@@ -111,6 +115,15 @@ cdef _logLikelihood_single_event(list hosts,
 #   Computing numbers and quantities
 
     Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, h = omega.h)
+    
+    if CoVolMax > 0.:
+        DL_min = -1.
+        DL_max = -1.
+        zmin = 0.0001
+        zmax = ComputeRedshiftFromCoVol(CoVolMax, omega)
+    
+    if DL_min > 0.:
+        zmin = ComputeRedshift(DL_min, omega)
     if DL_max > 0.:
         zmax = ComputeRedshift(DL_max, omega)
 
@@ -119,16 +132,10 @@ cdef _logLikelihood_single_event(list hosts,
     N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min, M_max)
     N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min, M_max)
     
-#   Coherence check
-    
-    if N_em < N_obs:
-        N_dark_em = 0
-    if N_tot < N_em:
-        N_noem = 0
 
 #   p(D|Gi)p(Gi)
     for i in range(N_h):
-        if catalog[i].z < zmax:
+        if catalog[i].z < zmax and catalog[i].z > zmin:
             p_with_post_view[i] = ComputeLogLhWithPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, N_em, m_th, M_max, M_min)
         else:
             p_with_post_view[i] = -INFINITY
@@ -136,7 +143,7 @@ cdef _logLikelihood_single_event(list hosts,
     
 #   p(Gi)
     for i in range(N_obs):
-        if catalog[i].z < zmax:
+        if catalog[i].z < zmax and catalog[i].z > zmin:
             N_obs_inside += 1
             p_no_post_view[i] = ComputeLogLhNoPost(catalog[i], event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
     p_no_post_dark = ComputeLogLhNoPost(dark_galaxy, event, omega, Schechter, zmin, zmax, M_cutoff, m_th, M_max, M_min)
@@ -147,6 +154,15 @@ cdef _logLikelihood_single_event(list hosts,
     N_dark    = N_tot - N_obs_inside
     N_dark_em = N_em - N_obs_inside
     N_noem    = N_tot - N_em
+    
+#   Coherence check
+    
+    if N_em < N_obs:
+        N_dark_em = 0
+    if N_tot < N_em:
+        N_noem = 0
+    if N_noem == 0:
+        p_noem = 0.
     
 #   Sum
 
@@ -160,6 +176,8 @@ cdef _logLikelihood_single_event(list hosts,
     for i in range(N_dark_em):
         logL = log_add(logL, dark_term)
     
+    
+    print(omega.h, p_no_post_dark, N_dark_em*p_no_post_dark, p_with_post_dark, p_noem, N_noem*p_noem, N_obs_inside, N_b, N_dark_em, N_noem, N_tot)
     logL += prob_Nobs(N_obs_inside,N_b)
     
     print('h = %.3f: done' % (omega.h))

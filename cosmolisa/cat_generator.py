@@ -52,7 +52,7 @@ def generate_galaxy(ipar, i, Schechter, omega, ID,ra,dec,z,z_cosmo,DL,absB,dB,ap
         if rd.random()*ipar['dCoVolMax'] < omega.ComovingVolumeElement(z_temp):
             z_cosmo_try = z_temp
             break
-    z_pec = rd.gauss(0, 0.0001)
+    z_pec = rd.gauss(0, 0.001)
     z_try = z_cosmo_try+z_pec
     DL_try = omega.LuminosityDistance(z_cosmo_try)
     while 1:
@@ -85,10 +85,10 @@ if __name__ == '__main__':
 
     Schechter, alpha, Mstar = SchechterMagFunction(M_min, M_max, omega.h)
     # output = '/path/to/folder/'
-    output = '/Users/stefanorinaldi/Documents/Sim/cat_test/'
+    output = '/Users/stefanorinaldi/Documents/Sim/cat_test_00/'
     if not os.path.exists(output):
         os.mkdir(output)
-    numberdensity = 0.066
+    numberdensity = 0.0066
 
     z_min = 0.0005
     z_max = 0.22
@@ -213,7 +213,7 @@ if __name__ == '__main__':
     fig_z_cosmo.savefig(output+'z_cosmo.pdf', bbox_inches='tight')
 
     ax_z_pm.hist(np.array(z)-np.array(z_cosmo), bins = int(np.sqrt(len(z_cosmo))), density = True, color='lightblue', label ='$z_{pm}$')
-    ax_z_pm.plot(app_z_pm, gaussian(app_z_pm, 0, 0.0001), color = 'red', linewidth = 0.5, label = '$\\propto exp((z_{pm})^2/2\\sigma^2)$')
+    ax_z_pm.plot(app_z_pm, gaussian(app_z_pm, 0, 0.001), color = 'red', linewidth = 0.5, label = '$\\propto exp((z_{pm})^2/2\\sigma^2)$')
     ax_z_pm.set_xlabel('$z_{pm}$')
     ax_z_pm.set_ylabel('$p(z_{pm})$')
     ax_z_pm.legend(loc=0)

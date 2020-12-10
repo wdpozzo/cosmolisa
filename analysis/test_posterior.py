@@ -51,7 +51,7 @@ def weighted_quantile(values, quantiles, sample_weight=None,
 
 @ray.remote
 def computeloglikelihood(e, hi, opts):
-    VolRec(input = opts['post'], output = opts['data'], bins = [60,180,360], dmax = 600, event_id = e.ID, catalog = opts['cat'], cosmology = 0, hubble = hi)
+#    VolRec(input = opts['post'], output = opts['data'], bins = [60,180,360], dmax = 600, event_id = e.ID, catalog = opts['cat'], cosmology = 0, hubble = hi)
     omega = cs.CosmologicalParameters(hi, 0.3,0.7,-1,0)
     hosts_file = opts['data']+'galaxy_0.9_%.3f.txt' %(hi)
     cat_file   = opts['data']+'catalog_%.3f.txt' %(hi)
@@ -59,7 +59,7 @@ def computeloglikelihood(e, hi, opts):
     cat   = read_galaxy_catalog({'RA':[0., 360.], 'DEC':[-90., 90.], 'z':[0., 4.]}, catalog_file = cat_file, n_tot = 1.)
     m_th = float(opts['m_th'])
     n = float(opts['n'])
-    logL = lk.logLikelihood_single_event(hosts, cat, m_th, n, e, omega, zmin = 0.0005, zmax = 0.22, DL_max = 700)
+    logL = lk.logLikelihood_single_event(hosts, cat, m_th, n, e, omega, zmin = 0.0005, zmax = 0.22, DL_min = 10, DL_max = 700, M_cutoff = -15.)#, CoVolMax = 7137310306.)
     omega.DestroyCosmologicalParameters()
     return logL
 
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     # maquillage stuff
     thickness   = [0.4,0.5,1,0.5,0.4]
     styles      = ['dotted', 'dashed', 'solid', 'dashed','dotted']
-    results     = str(percentiles[2])+'^{+'+str(percentiles[3]-percentiles[2])+'}_{-'+str(percentiles[2]-percentiles[1])+'}'
+    results     = '%.2f^{+%.2f}_{-%.2f}' %(percentiles[2],percentiles[3]-percentiles[2], percentiles[2]-percentiles[1])
     title       = '$H_0 = '+results+'\ km\\cdot s^{-1}\\cdot Mpc^{-1}$'
     
     # plotting
@@ -156,17 +156,15 @@ if __name__ == '__main__':
     ax_log  = fig_log.add_subplot(111)
     fig_log.suptitle(title)
     # single event likelihood
-    for l in likelihood_list:
-        ax_log.plot(h*100., l/100., linewidth = 0.3)
+    for l in likelihood_unnormed:
+        ax_log.plot(h*100., l/100., linewidth = 0.7)
     # values
     ax_log.axvline(float(opts['trueh'])*100, linewidth = 0.5, color = 'r')
     for p, t, s in zip(percentiles, thickness, styles):
         ax_log.axvline(p, ls = s, linewidth = t, color = 'darkblue')
-    # joint likelihood
-    ax_log.plot(h*100., np.array(likelihood_unnormed))
     # axes
     ax_log.set_xlabel('$H_0\ [km\\cdot s^{-1}\\cdot Mpc^{-1}]$')
-    ax_log.set_ylabel('$p(H_0)$')
+    ax_log.set_ylabel('$log(p(H_0))$')
     fig_log.savefig(opts['out']+'H0_logposterior.pdf', bbox_inches='tight')
     
     # duration

@@ -87,3 +87,5 @@ cdef double _LumDist(double z, CosmologicalParameters omega)
 cdef double _dLumDist(double z, CosmologicalParameters omega)
 
 cdef double ComputeRedshift(double LD, CosmologicalParameters omega, double zinit = *, double limit = *)
+
+cdef double ComputeRedshiftFromCoVol(double CoVol, CosmologicalParameters omega, double zinit = *, double limit = *)

@@ -22,7 +22,7 @@ cdef double ComputeLogLhWithPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    double sigma_z = 0.0001):
+                                    double sigma_z = 0.001):
     '''
     Computes the probability for a single galaxy of being the host AND observing/not observing that particular object.
     Parameters:
@@ -128,7 +128,7 @@ cdef double ComputeLogLhNoPost(Galaxy gal,
                                     double m_th,
                                     double M_max,
                                     double M_min,
-                                    double sigma_z = 0.0001):
+                                    double sigma_z = 0.001):
     '''
     Computes the probability for a single galaxy of observing/not observing that particular object.
     Parameters:
@@ -165,7 +165,7 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
                                     
     cdef unsigned int i, j, n_z = 1000, n_m = 100
     cdef double dI_z, I_z = -INFINITY
-    cdef double dI_M, I_M = 0.
+    cdef double dI_M, I_M = 0., I = 0.
 
     cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n_z, dtype = np.float64)
     cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n_m, dtype = np.float64)
@@ -174,7 +174,6 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
     cdef double dz = (zmax - zmin)/n_z
     cdef double dM = (M_max - M_min)/n_m
     
-    cdef double LD
     cdef double M_th
     cdef double p_mag, p_propmotion, p_z_cosmo, prior_galaxy
     
@@ -189,29 +188,30 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
             p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
             prior_galaxy = -log(4*M_PI)
             dI_z = p_mag+p_propmotion+prior_galaxy+p_z_cosmo+log(dz)
+            #print(omega.h, I_z, dI_z)
             I_z = log_add(I_z, dI_z)
         return I_z
 
     else:
         #redshift integral
+        I = -INFINITY
         for i in range(n_z):
-            LD = omega.LuminosityDistance(z_view[i])
-            p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
-            #magnitude integral
-            M_th = absM(z_view[i], m_th, omega)
-            I_M = 0.
             for j in range(n_m):
-                dI_M = 0.
                 if (M_view[j] > M_th) and (M_view[j] < M_cutoff):
-                    dI_M = Schechter(M_view[j])*dM
-                I_M += dI_M
-            if I_M != 0.:
-                I_M = log(I_M)
-            else:
-                I_M = -INFINITY
-            dI_z = I_M+p_z_cosmo+log(dz)
-            I_z = log_add(I_z, dI_z)
-        return I_z
+                    p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i])) # -log(CoVol)
+                    #magnitude integral
+                    M_th = absM(z_view[i], m_th, omega)
+
+        #dI_M = Schechter(M_view[j])*dM
+                    I = log_add(I, log(Schechter(M_view[j])*dM)+p_z_cosmo+log(dz))
+        #                I_M += dI_M
+        #            if I_M != 0.:
+    #                I_M = log(I_M)
+    #            else:
+    #                I_M = -INFINITY
+    #            dI_z = I_M+p_z_cosmo+log(dz)
+    #            I_z = log_add(I_z, dI_z)
+        return I
         
 cdef double ComputeLogLhNoEmission(Galaxy gal,
                                     object event,
@@ -375,3 +375,14 @@ cdef double ComputeRedshift(double LD, CosmologicalParameters omega, double zini
         return zinit
     znew = zinit - (LD_test - LD)/_dLumDist(zinit,omega)
     return ComputeRedshift(LD, omega, zinit = znew)
+
+cdef double ComputeRedshiftFromCoVol(double CoVol, CosmologicalParameters omega, double zinit = 0.3, double limit = 0.001):
+    '''
+    Redshift given a certain luminosity, calculated by recursion.
+    Limit is the less significative digit.
+    '''
+    CoVol_test = omega.ComovingVolume(zinit)
+    if abs(CoVol-CoVol_test) < limit:
+        return zinit
+    znew = zinit - (CoVol_test - CoVol)/omega.ComovingVolumeElement(zinit)
+    return ComputeRedshiftFromCoVol(CoVol, omega, zinit = znew)
