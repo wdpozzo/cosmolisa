@@ -63,7 +63,7 @@ cdef class SchechterMagFunctionInternal:
         norm = self.normalise()
         return self._evaluate(m)/norm
 
-cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str band = 'B'):
+cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str band = 'B', double phistar = 1.):
     """
     Returns a Schechter magnitude function for a given set of parameters
 
@@ -84,7 +84,7 @@ cpdef tuple SchechterMagFunction(double mmin, double mmax, double h=0.7, str ban
 
     Mstar_obs, alpha = schechter_function_params[band]
     cdef double Mstar = Mstar_obs + 5.*np.log10(h)
-    cdef object smf = SchechterMagFunctionInternal(Mstar, alpha, mmin, mmax)
+    cdef object smf = SchechterMagFunctionInternal(Mstar, alpha, mmin, mmax, phistar = phistar)
     norm = smf.norm
     return smf.pdf, alpha, Mstar
 

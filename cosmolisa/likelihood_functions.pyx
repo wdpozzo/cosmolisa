@@ -62,7 +62,7 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
 
     cdef unsigned int i, j, n_z = 1000, n_m = 100
     cdef double dI_z, I_z = -INFINITY
-    cdef double dI_M, I_M = 0.
+    cdef double dI_M, I_M = 0., I = -INFINITY
 
     cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n_z, dtype = np.float64)
     cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n_m, dtype = np.float64)
@@ -95,28 +95,17 @@ cdef double _ComputeLogLhWithPost(Galaxy gal,
     else:
         #redshift integral
         for i in range(n_z):
-            LD = omega.LuminosityDistance(z_view[i])
-            p_emission = -log(N_em)
-            p_post = event.marg_logP(LD)
-            p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
-            prior_wave = -log(4*M_PI)+2*log(LD)-log((omega.LuminosityDistance(zmax)**3-omega.LuminosityDistance(zmin)**3)/3.)
-            prior_galaxy = -log(4*M_PI)
-            
-            #magnitude integral
-            M_th = absM(z_view[i], m_th, omega)
-            I_M = 0.
             for j in range(n_m):
-                dI_M = 0.
+                M_th = absM(z_view[i], m_th, omega)
                 if (M_view[j] > M_th) and (M_view[j] < M_cutoff):
-                    dI_M = Schechter(M_view[j])*dM
-                I_M += dI_M
-            if I_M != 0.:
-                I_M = log(I_M)
-            else:
-                I_M = -INFINITY
-            dI_z = p_post+p_emission+I_M+prior_galaxy+p_z_cosmo-prior_wave+log(dz)
-            I_z = log_add(I_z, dI_z)
-        return I_z
+                    LD = omega.LuminosityDistance(z_view[i])
+                    p_emission = -log(N_em)
+                    p_post = event.marg_logP(LD)
+                    p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
+                    prior_wave = -log(4*M_PI)+2*log(LD)-log((omega.LuminosityDistance(zmax)**3-omega.LuminosityDistance(zmin)**3)/3.)
+                    prior_galaxy = -log(4*M_PI)
+                    I = log_add(I, log(Schechter(M_view[j])*dM)+p_post+p_emission+I_M+prior_galaxy+p_z_cosmo-prior_wave+log(dz))
+        return I
 
 cdef double ComputeLogLhNoPost(Galaxy gal,
                                     object event,
@@ -196,11 +185,11 @@ cdef double _ComputeLogLhNoPost(Galaxy gal,
         #redshift integral
         I = -INFINITY
         for i in range(n_z):
+            M_th = absM(z_view[i], m_th, omega)
             for j in range(n_m):
                 if (M_view[j] > M_th) and (M_view[j] < M_cutoff):
-                    p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i])) # -log(CoVol)
+                    p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
                     #magnitude integral
-                    M_th = absM(z_view[i], m_th, omega)
 
         #dI_M = Schechter(M_view[j])*dM
                     I = log_add(I, log(Schechter(M_view[j])*dM)+p_z_cosmo+log(dz))
@@ -256,7 +245,7 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
                                     
     cdef unsigned int i, j, n_z = 1000, n_m = 100
     cdef double dI_z, I_z = -INFINITY
-    cdef double dI_M, I_M = 0.
+    cdef double dI_M, I_M = 0., I = -INFINITY
 
     cdef np.ndarray[double, ndim=1, mode = "c"] z = np.linspace(zmin, zmax, n_z, dtype = np.float64)
     cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n_m, dtype = np.float64)
@@ -273,23 +262,11 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
     
     #redshift integral
     for i in range(n_z):
-        LD = omega.LuminosityDistance(z_view[i])
-        p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
-        #magnitude integral
-        I_M = 0.
-        M_th = absM(z_view[i], m_th, omega)
         for j in range(n_m):
-            dI_M = 0.
-            if M_view[j] > M_cutoff:# and M_view[j] > M_th:
-                dI_M = Schechter(M_view[j])*dM
-            I_M += dI_M
-        if I_M != 0.:
-            I_M = log(I_M)
-        else:
-            I_M = -INFINITY
-        dI_z = I_M+p_z_cosmo+log(dz)
-        I_z = log_add(I_z, dI_z)
-    return I_z
+            if M_view[j] > M_cutoff:
+                p_z_cosmo = log(omega.ComovingVolumeElement(z_view[i]))-log(CoVol)
+                I = log_add(I, log(Schechter(M_view[j])*dM)+p_z_cosmo+log(dz))
+    return I
 
 cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, str distribution = 'poisson'):
     '''
@@ -306,24 +283,25 @@ cdef double prob_Nobs(unsigned int N_obs, unsigned int N_b, str distribution = '
         print('WARNING: binomial not implemented yet')
         return 0
 
-cdef unsigned int ComputeEmitters(unsigned int N_tot, object Schechter, double M_cutoff, double M_min, double M_max, int n = 1000):
+cdef unsigned int ComputeEmitters(double numberdensity, double CoVol, object Schechter, double M_cutoff, double M_min, double M_max, int n = 1000):
     '''
     Eq. 8
     Computes the expected number of emitting galaxies
     '''
     
     cdef unsigned int i
-    cdef double I=0.
+    cdef double I=0., norm = 0.
     
     cdef np.ndarray[double, ndim=1, mode = "c"] M = np.linspace(M_min, M_max, n, dtype = np.float64)
     cdef double[::1] M_view = M
     cdef double dM = (M_max - M_min)/n
     
     for i in range(n):
+        norm += Schechter(M_view[i])*dM
         if M_view[i] < M_cutoff:
-            I += Schechter(M_view[i])*dM
+            I += Schechter(M_view[i])*dM*CoVol*numberdensity
     
-    return int(I*N_tot)
+    return int(I)
 
 cdef unsigned int ComputeBright(double numberdensity, CosmologicalParameters omega, object Schechter, double m_th, double zmin, double zmax, double M_min, double M_max, int n = 1000):
     '''

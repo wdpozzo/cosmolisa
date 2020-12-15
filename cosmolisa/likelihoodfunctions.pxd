@@ -75,7 +75,7 @@ cdef double _ComputeLogLhNoEmission(Galaxy gal,
                                     double M_min,
                                     double m_th)
 
-cdef unsigned int ComputeEmitters(unsigned int N_tot, object Schechter, double M_cutoff, double M_min, double M_max, int n = *)
+cdef unsigned int ComputeEmitters(double numberdensity, double CoVol, object Schechter, double M_cutoff, double M_min, double M_max, int n = *)
 
 cdef unsigned int ComputeBright(double numberdensity, CosmologicalParameters omega, object Schechter, double m_th, double zmin, double zmax, double M_min, double M_max, int n = *)
 

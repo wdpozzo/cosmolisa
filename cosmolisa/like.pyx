@@ -11,7 +11,7 @@ from scipy.integrate import quad
 from cosmolisa.cosmology cimport CosmologicalParameters
 from libc.math cimport isfinite
 from cosmolisa.galaxy cimport Galaxy
-from cosmolisa.schechter cimport *
+from cosmolisa.schechter import SchechterMagFunction
 from cosmolisa.likelihoodfunctions cimport *
 
 def logLikelihood_single_event(list hosts,
@@ -129,7 +129,7 @@ cdef _logLikelihood_single_event(list hosts,
 
     CoVol     = omega.ComovingVolume(zmax)-omega.ComovingVolume(zmin)
     N_tot     = int(CoVol*number_density)
-    N_em      = ComputeEmitters(N_tot, Schechter, M_cutoff, M_min, M_max)
+    N_em      = ComputeEmitters(number_density, CoVol, Schechter, M_cutoff, M_min, M_max)
     N_b       = ComputeBright(number_density, omega, Schechter, m_th, zmin, zmax, M_min, M_max)
     
 

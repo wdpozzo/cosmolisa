@@ -9,6 +9,6 @@ cdef class SchechterMagFunctionInternal:
     cdef double normalise(self)
     cpdef double pdf(self, double m)
 
-cpdef tuple SchechterMagFunction(double mmin, double mmax, double h = *, str band = *)
+cpdef tuple SchechterMagFunction(double mmin, double mmax, double h = *, str band = *, double phistar = *)
 
 cdef double M_Mobs(double h, double M_obs)
