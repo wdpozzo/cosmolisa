@@ -18,6 +18,7 @@ labels_plot = {
     'LambdaCDM_h': ['h'],
     'LambdaCDM_om': ['\Omega_m'],
     'LambdaCDM': [r'$h$', r'$\Omega_m$'],
+    'LambdaCDM_Modified': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
     'CLambdaCDM': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$'],
     'LambdaCDMDE': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$', 
                     r'$w_0$', r'$w_a$'],
@@ -107,6 +108,14 @@ def corner_plot(x, **kwargs):
                       samps_tuple=(x['h'] ,x['om']),
                       quantiles_plot=[0.05, 0.5, 0.95],
                       truths=[kwargs['truths']['h'], kwargs['truths']['om']],
+                      outdir=kwargs['outdir'],
+                      name="corner_plot_90CI")
+
+    if (kwargs['model'] == 'LambdaCDM_Modified'):
+        corner_config(model=kwargs['model'],
+                      samps_tuple=(x['h'], x['om'], x['Xi0'], x['n'],),
+                      quantiles_plot=[0.05, 0.5, 0.95],
+                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0'], kwargs['truths']['n']],
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")
 
@@ -243,6 +252,11 @@ def redshift_ev_plot(x, **kwargs):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], 1.0-x['om'][i],
                 kwargs['truths']['w0'], kwargs['truths']['w1'])
+        elif ('LambdaCDM_Modified' in kwargs['model']):
+            O = cs.CosmologicalParameters(
+                x['h'][i], x['om'][i], 1.0-x['om'][i],
+                kwargs['truths']['w0'], kwargs['truths']['w1'],
+                x['Xi0'][i], x['n'][i])
         elif ('CLambdaCDM' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], x['ol'][i],

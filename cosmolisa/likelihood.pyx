@@ -66,7 +66,7 @@ cdef double _logLikelihood_single_event(const double[:,::1] hosts,
 
     # Predict dL from the cosmology O and the redshift z_gw:
     # d(O, z_GW).
-    dl = omega._LuminosityDistance(event_redshift)
+    dl = omega._LuminosityDistance_Modified(event_redshift)
     # sigma_WL and combined sigma entering the detector likelihood:
     # p(Di | dL, z_gw, M, I).
     weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
