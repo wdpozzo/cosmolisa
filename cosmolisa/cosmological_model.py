@@ -74,6 +74,10 @@ class CosmologicalModel(cpnest.model.Model):
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
+        if ('LambdaCDM_Modified' in self.model):
+            self.names = ['h', 'om', 'Xi0', 'n']
+            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0,3], [0,3]]
+
         if ('LambdaCDM_h' in self.model):
             self.names = ['h']
             self.bounds = [[0.6, 0.86]]
@@ -236,6 +240,11 @@ class CosmologicalModel(cpnest.model.Model):
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
                     x['w0'], x['w1'])
+            elif ('LambdaCDM_Modified' in self.model):
+                self.O = cs.CosmologicalParameters(
+                    x['h'], x['om'], 1.0-x['om'], 
+                    self.truths['w0'], self.truths['w1'],
+                    x['Xi0'], x['n'])
             else:
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
@@ -565,6 +574,8 @@ def main():
         'ol': config_par['truth_par']['ol'],
         'w0': -1.0,
         'w1': 0.0,
+        'Xi0': 1.0,
+        'n': 0.0,
         'r0': 5e-10,
         'p1': 41.0,
         'p2': 2.4,
@@ -586,7 +597,10 @@ def main():
 
     omega_true = cs.CosmologicalParameters(truths['h'], truths['om'],
                                            truths['ol'],truths['w0'],
-                                           truths['w1'])
+                                           truths['w1'],
+                                           truths['Xi0'],
+                                           truths['n'],
+                                           )
 
     if ("EMRI_SAMPLE_MODEL101" in config_par['data']):
         corr_const = correction_constants["M1"]
@@ -832,6 +846,9 @@ def main():
                         truths=truths, outdir=outdir)
     elif ('LambdaCDM' in C.model):
         plots.corner_plot(x, model='LambdaCDM',
+                            truths=truths, outdir=outdir)
+    elif ('LambdaCDM_Modified' in C.model):
+        plots.corner_plot(x, model='LambdaCDM_Modified',
                             truths=truths, outdir=outdir)
     elif ('CLambdaCDM' in C.model):
         plots.corner_plot(x, model='CLambdaCDM',
