@@ -251,7 +251,8 @@ def redshift_ev_plot(x, **kwargs):
         elif ('LambdaCDM' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], 1.0-x['om'][i],
-                kwargs['truths']['w0'], kwargs['truths']['w1'])
+                kwargs['truths']['w0'], kwargs['truths']['w1'],
+                kwargs['truths']['Xi0'], kwargs['truths']['n'])
         elif ('LambdaCDM_Modified' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], 1.0-x['om'][i],

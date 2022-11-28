@@ -76,7 +76,7 @@ class CosmologicalModel(cpnest.model.Model):
 
         if ('LambdaCDM_Modified' in self.model):
             self.names = ['h', 'om', 'Xi0', 'n']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0,3], [0,3]]
+            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.5,3.0], [0.3,3.0]]
 
         if ('LambdaCDM_h' in self.model):
             self.names = ['h']
@@ -228,7 +228,8 @@ class CosmologicalModel(cpnest.model.Model):
             elif ('LambdaCDM' in self.model):
                 self.O = cs.CosmologicalParameters(
                     x['h'], x['om'], 1.0-x['om'], self.truths['w0'],
-                    self.truths['w1'])
+                    self.truths['w1'],
+                    self.truths['Xi0'], self.truths['n'],)
             elif ('CLambdaCDM' in self.model):
                 self.O = cs.CosmologicalParameters(
                     x['h'], x['om'], x['ol'], self.truths['w0'],
@@ -782,7 +783,7 @@ def main():
         m_threshold=config_par['m_threshold'],
         SFRD=config_par['SFRD'],
         corr_const=corr_const)
-
+    # exit()
     # IMPROVEME: postprocess doesn't work when events are 
     # randomly selected, since 'events' in C are different 
     # from the ones read from chain.txt.
