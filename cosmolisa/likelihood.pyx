@@ -66,7 +66,7 @@ cdef double _logLikelihood_single_event(const double[:,::1] hosts,
 
     # Predict dL from the cosmology O and the redshift z_gw:
     # d(O, z_GW).
-    dl = omega._LuminosityDistance_Modified(event_redshift)
+    dl = omega._LuminosityDistance(event_redshift)
     # sigma_WL and combined sigma entering the detector likelihood:
     # p(Di | dL, z_gw, M, I).
     weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
@@ -103,6 +103,81 @@ cdef inline double _sigma_weak_lensing(const double z, const double dl) nogil:
     dl: :obj:'numpy.double': luminosity distance
     """
     return 0.5*0.066*dl*((1.0-(1.0+z)**(-0.25))/0.25)**1.8
+
+
+def logLikelihood_single_event_Modified(const double[:,::1] hosts,
+                               const double meandl,
+                               const double sigmadl,
+                               CosmologicalParameters omega,
+                               const double event_redshift,
+                               const double zmin=0.0,
+                               const double zmax=1.0):
+    """Likelihood function p( Di | O, M, I) for a single GW event
+    of data Di assuming cosmological model M and parameters O.
+    Following the formalism of <arXiv:2102.01708>.
+    Loops over all possible hosts to accumulate the likelihood.
+    Parameters:
+    ===============
+    hosts: :obj: 'numpy.array' with shape Nx4. The columns are
+        redshift, redshift_error, angular_weight, magnitude
+    meandl: :obj: 'numpy.double': mean of the luminosity distance dL
+    sigmadl: :obj: 'numpy.double': standard deviation of dL
+    omega: :obj: 'lal.CosmologicalParameter': cosmological parameter
+        structure O
+    event_redshift: :obj: 'numpy.double': redshift for the GW event
+    zmin: :obj: 'numpy.double': minimum GW redshift
+    zmax: :obj: 'numpy.double': maximum GW redshift
+    """
+    return _logLikelihood_single_event_Modified(hosts, meandl, sigmadl, omega,
+                                       event_redshift, zmin=zmin, zmax=zmax)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
+                                        const double meandl,
+                                        const double sigmadl,
+                                        CosmologicalParameters omega,
+                                        const double event_redshift,
+                                        double zmin=0.0,
+                                        double zmax=1.0) nogil:
+
+    cdef unsigned int j
+    cdef double dl
+    cdef double logL_galaxy
+    cdef double logL_detector
+    cdef double sigma_z, score_z
+    cdef double weak_lensing_error
+    cdef unsigned int N = hosts.shape[0]
+    cdef double logTwoPiByTwo = 0.5*log(2.0*M_PI)
+    cdef double logL = -HUGE_VAL
+
+    # Predict dL from the cosmology O and the redshift z_gw:
+    # d(O, z_GW).
+    dl = omega._LuminosityDistance_Modified_Xi0n(event_redshift)
+    # sigma_WL and combined sigma entering the detector likelihood:
+    # p(Di | dL, z_gw, M, I).
+    weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
+    cdef double SigmaSquared = sigmadl**2 + weak_lensing_error**2
+    cdef double logSigmaByTwo = 0.5*log(SigmaSquared)
+    # 1/sqrt{2pi*SigmaSquared}*exp(-0.5*(dL-d(O, z_GW))^2/SigmaSquared)
+    logL_detector = (-0.5*(dl-meandl)*(dl-meandl)/SigmaSquared
+                     - logSigmaByTwo - logTwoPiByTwo)
+
+    # Sum over the observed-galaxy redshifts: p(z_GW | dL, O, M, I) =
+    # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
+    for j in range(N):
+        # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
+        sigma_z = hosts[j,1] * (1+hosts[j,0])
+        # Compute the full single-galaxy term to be summed over Ng.
+        score_z = (event_redshift - hosts[j,0])/sigma_z
+        logL_galaxy = (log(hosts[j,2]) - log(sigma_z)
+                       - 0.5*score_z*score_z - logTwoPiByTwo)
+        logL = log_add(logL, logL_galaxy)
+        
+    # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
+    return logL_detector + logL
 
 
 ##########################################################

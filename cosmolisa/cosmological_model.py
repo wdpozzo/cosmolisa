@@ -74,9 +74,13 @@ class CosmologicalModel(cpnest.model.Model):
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
-        if ('LambdaCDM_Modified' in self.model):
+        if ('LambdaCDM_Modified_Xi0n' in self.model):
             self.names = ['h', 'om', 'Xi0', 'n']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.5,3.0], [0.3,3.0]]
+            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0], [0.1,5.0]]
+
+        if ('LambdaCDM_Modified_Xi0' in self.model):
+            self.names = ['h', 'om', 'Xi0']
+            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0]]
 
         if ('LambdaCDM_h' in self.model):
             self.names = ['h']
@@ -241,11 +245,16 @@ class CosmologicalModel(cpnest.model.Model):
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
                     x['w0'], x['w1'])
-            elif ('LambdaCDM_Modified' in self.model):
+            elif ('LambdaCDM_Modified_Xi0n' in self.model):
                 self.O = cs.CosmologicalParameters(
                     x['h'], x['om'], 1.0-x['om'], 
                     self.truths['w0'], self.truths['w1'],
                     x['Xi0'], x['n'])
+            elif ('LambdaCDM_Modified_Xi0' in self.model):
+                self.O = cs.CosmologicalParameters(
+                    x['h'], x['om'], 1.0-x['om'], 
+                    self.truths['w0'], self.truths['w1'],
+                    x['Xi0'], self.truths['n'])
             else:
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
@@ -402,10 +411,16 @@ class CosmologicalModel(cpnest.model.Model):
                         + np.log(self.population_model.pdf(x['z%d'%e.ID])
                         / self.T) for j, e in enumerate(self.data)])
             else:
-                logL_GW += np.sum([lk.logLikelihood_single_event(
-                        self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                        x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
-                        for j, e in enumerate(self.data)])
+                if ('LambdaCDM_Modified_Xi0n' in self.model) or ('LambdaCDM_Modified_Xi0' in self.model):
+                    logL_GW += np.sum([lk.logLikelihood_single_event_Modified(
+                            self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
+                            for j, e in enumerate(self.data)])
+                else:
+                    logL_GW += np.sum([lk.logLikelihood_single_event(
+                            self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
+                            for j, e in enumerate(self.data)])
 
 
         self.O.DestroyCosmologicalParameters()
@@ -848,8 +863,11 @@ def main():
     elif ('LambdaCDM' in C.model):
         plots.corner_plot(x, model='LambdaCDM',
                             truths=truths, outdir=outdir)
-    elif ('LambdaCDM_Modified' in C.model):
-        plots.corner_plot(x, model='LambdaCDM_Modified',
+    elif ('LambdaCDM_Modified_Xi0n' in C.model):
+        plots.corner_plot(x, model='LambdaCDM_Modified_Xi0n',
+                            truths=truths, outdir=outdir)
+    elif ('LambdaCDM_Modified_Xi0' in C.model):
+        plots.corner_plot(x, model='LambdaCDM_Modified_Xi0',
                             truths=truths, outdir=outdir)
     elif ('CLambdaCDM' in C.model):
         plots.corner_plot(x, model='CLambdaCDM',

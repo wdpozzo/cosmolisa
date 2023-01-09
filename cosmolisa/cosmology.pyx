@@ -19,7 +19,7 @@ cdef class CosmologicalParameters:
     cdef double _LuminosityDistance(self, double z) nogil:
         return XLALLuminosityDistance(self._LALCosmologicalParameters, z)
 
-    cdef double _LuminosityDistance_Modified(self, double z) nogil:
+    cdef double _LuminosityDistance_Modified_Xi0n(self, double z) nogil:
         return (self.Xi0 + (1.-self.Xi0)/(1.+z)**self.n)*XLALLuminosityDistance(self._LALCosmologicalParameters, z)
 
     cdef double _HubbleDistance(self) nogil:
@@ -66,8 +66,8 @@ cdef class CosmologicalParameters:
     def LuminosityDistance(self, double z):
         return self._LuminosityDistance(z)
 
-    def LuminosityDistance_Modified(self, double z):
-        return self._LuminosityDistance_Modified(z)
+    def LuminosityDistance_Modified_Xi0n(self, double z):
+        return self._LuminosityDistance_Modified_Xi0n(z)
 
     def HubbleDistance(self):
         return self._HubbleDistance()

@@ -18,7 +18,8 @@ labels_plot = {
     'LambdaCDM_h': ['h'],
     'LambdaCDM_om': ['\Omega_m'],
     'LambdaCDM': [r'$h$', r'$\Omega_m$'],
-    'LambdaCDM_Modified': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
+    'LambdaCDM_Modified_Xi0n': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
+    'LambdaCDM_Modified_Xi0': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
     'CLambdaCDM': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$'],
     'LambdaCDMDE': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$', 
                     r'$w_0$', r'$w_a$'],
@@ -111,11 +112,19 @@ def corner_plot(x, **kwargs):
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")
 
-    if (kwargs['model'] == 'LambdaCDM_Modified'):
+    if (kwargs['model'] == 'LambdaCDM_Modified_Xi0n'):
         corner_config(model=kwargs['model'],
                       samps_tuple=(x['h'], x['om'], x['Xi0'], x['n'],),
                       quantiles_plot=[0.05, 0.5, 0.95],
                       truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0'], kwargs['truths']['n']],
+                      outdir=kwargs['outdir'],
+                      name="corner_plot_90CI")
+
+    if (kwargs['model'] == 'LambdaCDM_Modified_Xi0'):
+        corner_config(model=kwargs['model'],
+                      samps_tuple=(x['h'], x['om'], x['Xi0'],),
+                      quantiles_plot=[0.05, 0.5, 0.95],
+                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0']],
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")
 
@@ -253,11 +262,16 @@ def redshift_ev_plot(x, **kwargs):
                 x['h'][i], x['om'][i], 1.0-x['om'][i],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
                 kwargs['truths']['Xi0'], kwargs['truths']['n'])
-        elif ('LambdaCDM_Modified' in kwargs['model']):
+        elif ('LambdaCDM_Modified_Xi0n' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], 1.0-x['om'][i],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
                 x['Xi0'][i], x['n'][i])
+        elif ('LambdaCDM_Modified_Xi0' in kwargs['model']):
+            O = cs.CosmologicalParameters(
+                x['h'][i], x['om'][i], 1.0-x['om'][i],
+                kwargs['truths']['w0'], kwargs['truths']['w1'],
+                x['Xi0'][i], kwargs['truths']['n'])
         elif ('CLambdaCDM' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], x['ol'][i],
