@@ -74,38 +74,43 @@ class CosmologicalModel(cpnest.model.Model):
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
-        if ('LambdaCDM_Modified_Xi0n' in self.model):
-            self.names = ['h', 'om', 'Xi0', 'n']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0], [0.1,5.0]]
+        if kwargs['names'] and kwargs['bounds']:
+            self.names = kwargs['names']
+            self.bounds = kwargs['bounds']
+            print ('parameter names and bounds given')
+        else:
+            if ('LambdaCDM_Modified_Xi0n' in self.model):
+                self.names = ['h', 'om', 'Xi0', 'n']
+                self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0], [0.1,5.0]]
 
-        if ('LambdaCDM_Modified_Xi0' in self.model):
-            self.names = ['h', 'om', 'Xi0']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0]]
+            if ('LambdaCDM_Modified_Xi0' in self.model):
+                self.names = ['h', 'om', 'Xi0']
+                self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.1,5.0]]
 
-        if ('LambdaCDM_h' in self.model):
-            self.names = ['h']
-            self.bounds = [[0.6, 0.86]]
+            if ('LambdaCDM_h' in self.model):
+                self.names = ['h']
+                self.bounds = [[0.6, 0.86]]
 
-        if ('LambdaCDM_om' in self.model):
-            self.names = ['om']
-            self.bounds = [[0.04, 0.5]]
+            if ('LambdaCDM_om' in self.model):
+                self.names = ['om']
+                self.bounds = [[0.04, 0.5]]
 
-        if ('LambdaCDM' in self.model):
-            self.names = ['h', 'om']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5]]
+            if ('LambdaCDM' in self.model):
+                self.names = ['h', 'om']
+                self.bounds = [[0.6, 0.86], [0.04, 0.5]]
 
-        if ('CLambdaCDM' in self.model):
-            self.names = ['h', 'om', 'ol']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.0, 1.0]]
+            if ('CLambdaCDM' in self.model):
+                self.names = ['h', 'om', 'ol']
+                self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.0, 1.0]]
 
-        if ('LambdaCDMDE' in self.model):
-            self.names = ['h', 'om', 'ol', 'w0', 'w1']
-            self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.0, 1.0],
-                [-3.0, -0.3], [-1.0, 1.0]]
+            if ('LambdaCDMDE' in self.model):
+                self.names = ['h', 'om', 'ol', 'w0', 'w1']
+                self.bounds = [[0.6, 0.86], [0.04, 0.5], [0.0, 1.0],
+                    [-3.0, -0.3], [-1.0, 1.0]]
 
-        if ('DE' in self.model):
-            self.names = ['w0', 'w1']
-            self.bounds = [[-3.0, -0.3], [-1.0, 1.0]]
+            if ('DE' in self.model):
+                self.names = ['w0', 'w1']
+                self.bounds = [[-3.0, -0.3], [-1.0, 1.0]]
 
         if ('GW' in self.model):
             self.gw = 1
@@ -478,7 +483,8 @@ usage="""\n\n %prog --config-file config.ini\n
     'obj_store_mem'        Default: 2e9.                                     Amount of memory reserved for ray object store. Default: 2GB.
     'checkpoint_int'       Default: 21600.                                   Time interval between sampler periodic checkpoint in seconds. Defaut: 21600 (6h).
     'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0.
-
+    'names'                Default: None (depends on the selected model)     Name of the parameters to be estimated. (Modified by LC)
+    'bounds'               Default: None (depends on the selected model)     Prior range of the parameters to be estimated. (Modified by LC)
 """
 
 def main():
@@ -538,17 +544,22 @@ def main():
         'seed': 0,
         'obj_store_mem': 2e9,
         'checkpoint_int': 10800,
-        'resume': 0
+        'resume': 0,
+        'names': '',
+        'bounds': '',
         }
 
     for key in config_par:
         keytype = type(config_par[key])
+        # print(key)
         try: 
             if ('truth_par' in key):
                 config_par[key] = json.loads(
                     Config.get('input parameters', '{}'.format(key)))
+                # print('C', Config.get('input parameters', '{}'.format(key)))
             else:
                 config_par[key] = keytype(Config.get('input parameters', key))
+                # print (Config.get('input parameters', key))
         except (KeyError, configparser.NoOptionError, TypeError):
             pass
 
@@ -579,7 +590,7 @@ def main():
     print(f"cosmolisa likelihood version: {lk.__file__}")
     print("\n"+formatting_string)
 
-    print((f"\nReading config file: {config_file}\n"))
+    print((f"\n\n\nReading config file: {config_file}\n"))
     for key in config_par:
         print(("{name} : {value}".format(name=key.ljust(max_len_keyword),
                                          value=config_par[key])))
@@ -785,12 +796,17 @@ def main():
     print(f"object_store_memory:     {config_par['obj_store_mem']}")
     print(f"periodic_checkpoint_int: {config_par['checkpoint_int']}")
     print(f"resume:                  {config_par['resume']}")
+    print(f"names:                   {config_par['names']}")
+    print(f"bounds:                  {config_par['bounds']}")
+    print("\n\n\n\n =======Construct CosmologicalModel instance=========")
 
     C = CosmologicalModel(
         model=config_par['model'],
         data=events,
         corrections=config_par['corrections'],
         truths=truths,
+        names = config_par['names'],
+        bounds = config_par['bounds'],
         snr_threshold=config_par['snr_threshold'],
         z_threshold=float(config_par['zhorizon']),
         event_class=config_par['event_class'],
