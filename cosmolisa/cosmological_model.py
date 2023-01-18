@@ -550,11 +550,10 @@ def main():
         # print(key)
         try: 
             if ('truth_par' in key):
-                config_par[key] = json.loads(
-                    Config.get('input parameters', '{}'.format(key)))  ###Should change to update too
+                config_par[key].update(json.loads(Config.get('input parameters', '{}'.format(key)))) 
                 # print('C', config_par[key])
             elif ('bounds_dict' in key):
-                config_par[key].update( json.loads(Config.get('input parameters', '{}'.format(key)) ))
+                config_par[key].update(json.loads(Config.get('input parameters', '{}'.format(key))))
                 print (config_par[key],type(config_par[key]))
             else:
                 config_par[key] = keytype(Config.get('input parameters', key))
