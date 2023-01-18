@@ -479,9 +479,8 @@ usage="""\n\n %prog --config-file config.ini\n
     'seed'                 Default: 0.                                       Random seed initialisation.
     'obj_store_mem'        Default: 2e9.                                     Amount of memory reserved for ray object store. Default: 2GB.
     'checkpoint_int'       Default: 21600.                                   Time interval between sampler periodic checkpoint in seconds. Defaut: 21600 (6h).
-    'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0.
-    'names'                Default: None (depends on the selected model)     Name of the parameters to be estimated. (Modified by LC)
-    'bounds'               Default: None (depends on the selected model)     Prior range of the parameters to be estimated. (Modified by LC)
+    'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0.  
+    'bounds_dict'          Defult: see below (LCDM)                          Prior ranges (Modified by LC)
 """
 
 def main():
