@@ -84,6 +84,11 @@ class CosmologicalModel(cpnest.model.Model):
             self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["Xi0"]]
             print ('Model: LambdaCDM_Modified_Xi0', self.names, self.bounds)
 
+        if ('LambdaCDM_Modified_fixhom_Xi0n' in self.model):
+            self.names = ['Xi0', 'n']
+            self.bounds = [kwargs['bounds_dict']["Xi0"], kwargs['bounds_dict']["n"]]
+            print ('LambdaCDM_Modified_fixhom_Xi0n', self.names, self.bounds)
+
         if ('LambdaCDM_h' in self.model):
             self.names = ['h']
             self.bounds = [kwargs['bounds_dict']["h"]]
@@ -257,6 +262,11 @@ class CosmologicalModel(cpnest.model.Model):
                     x['h'], x['om'], 1.0-x['om'], 
                     self.truths['w0'], self.truths['w1'],
                     x['Xi0'], self.truths['n'])
+            elif ('LambdaCDM_Modified_fixhom_Xi0n' in self.model):
+                self.O = cs.CosmologicalParameters(
+                    self.truths['h'], self.truths['om'], self.truths['ol'], 
+                    self.truths['w0'], self.truths['w1'],
+                    x['Xi0'], x['n'])
             else:
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
@@ -413,7 +423,10 @@ class CosmologicalModel(cpnest.model.Model):
                         + np.log(self.population_model.pdf(x['z%d'%e.ID])
                         / self.T) for j, e in enumerate(self.data)])
             else:
-                if ('LambdaCDM_Modified_Xi0n' in self.model) or ('LambdaCDM_Modified_Xi0' in self.model):
+                if (('LambdaCDM_Modified_Xi0n' in self.model) 
+                or ('LambdaCDM_Modified_Xi0' in self.model)
+                or ('LambdaCDM_Modified_fixhom_Xi0n' in self.model)):
+                    # print('using modified logL')
                     logL_GW += np.sum([lk.logLikelihood_single_event_Modified(
                             self.hosts[e.ID], e.dl, e.sigmadl, self.O,
                             x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
@@ -479,7 +492,7 @@ usage="""\n\n %prog --config-file config.ini\n
     'seed'                 Default: 0.                                       Random seed initialisation.
     'obj_store_mem'        Default: 2e9.                                     Amount of memory reserved for ray object store. Default: 2GB.
     'checkpoint_int'       Default: 21600.                                   Time interval between sampler periodic checkpoint in seconds. Defaut: 21600 (6h).
-    'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0.  
+    'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0. 
     'bounds_dict'          Defult: see below (LCDM)                          Prior ranges (Modified by LC)
 """
 
@@ -549,8 +562,7 @@ def main():
         # print(key)
         try: 
             if ('truth_par' in key):
-                config_par[key].update(json.loads(Config.get('input parameters', '{}'.format(key)))) 
-                # print('C', config_par[key])
+                config_par[key].update(json.loads(Config.get('input parameters', '{}'.format(key)))) #update with config file
             elif ('bounds_dict' in key):
                 config_par[key].update(json.loads(Config.get('input parameters', '{}'.format(key))))
                 print (config_par[key],type(config_par[key]))
@@ -878,6 +890,9 @@ def main():
                             truths=truths, outdir=outdir)
     elif ('LambdaCDM_Modified_Xi0' in C.model):
         plots.corner_plot(x, model='LambdaCDM_Modified_Xi0',
+                            truths=truths, outdir=outdir)
+    elif ('LambdaCDM_Modified_fixhom_Xi0n' in C.model):
+        plots.corner_plot(x, model='LambdaCDM_Modified_fixhom_Xi0n',
                             truths=truths, outdir=outdir)
     elif ('CLambdaCDM' in C.model):
         plots.corner_plot(x, model='CLambdaCDM',
