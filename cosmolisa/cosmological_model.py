@@ -416,8 +416,9 @@ class CosmologicalModel(cpnest.model.Model):
         # is necessary.
         else:
             # Multiply GW likelihood by 1/(Ns_tot) dR/dz.
+            # Only compatible with dark sirens.
             if (self.rate == 1) or (self.gw_correction == 1):
-                logL_GW += np.sum([lk.logLikelihood_single_event(
+                logL_GW += np.sum([lk.loglk_dark_single_event(
                         self.hosts[e.ID], e.dl, e.sigmadl, self.O,
                         x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
                         + np.log(self.population_model.pdf(x['z%d'%e.ID])
@@ -432,10 +433,16 @@ class CosmologicalModel(cpnest.model.Model):
                             x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
                             for j, e in enumerate(self.data)])
                 else:
-                    logL_GW += np.sum([lk.logLikelihood_single_event(
-                            self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
-                            for j, e in enumerate(self.data)])
+                    if (self.event_class == 'dark_siren'):
+                        logL_GW += np.sum([lk.loglk_dark_single_event(
+                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                                x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
+                                for j, e in enumerate(self.data)])
+                    elif (self.event_class == 'MBHB'):
+                        logL_GW += np.sum([lk.loglk_bright_single_event(
+                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                                x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
+                                for j, e in enumerate(self.data)])
 
 
         self.O.DestroyCosmologicalParameters()
@@ -631,7 +638,7 @@ def main():
     print(formatting_string+"\n")
 
     omega_true = cs.CosmologicalParameters(truths['h'], truths['om'],
-                                           truths['ol'],truths['w0'],
+                                           truths['ol'], truths['w0'],
                                            truths['w1'],
                                            truths['Xi0'],
                                            truths['n'],
@@ -657,13 +664,15 @@ def main():
         if (config_par['snr_selection'] != 0):
             events = readdata.read_dark_siren_event(
                 config_par['data'], None,
+                max_hosts=config_par['max_hosts'],
                 snr_selection=config_par['snr_selection'],
                 sigma_pv=config_par['sigma_pv'],
                 one_host_selection=config_par['one_host_sel'],
                 z_gal_cosmo=config_par['z_gal_cosmo'])
         elif (config_par['z_event_sel'] != 0):
             events = readdata.read_dark_siren_event(
-                config_par['data'], None, 
+                config_par['data'], None,
+                max_hosts=config_par['max_hosts'],
                 z_event_sel=config_par['z_event_sel'],
                 one_host_selection=config_par['one_host_sel'],
                 sigma_pv=config_par['sigma_pv'],
@@ -672,7 +681,8 @@ def main():
                   and (',' not in config_par['zhorizon'])
                   and (config_par['zhorizon'] == '1000.0')):
             events = readdata.read_dark_siren_event(
-                config_par['data'], None, 
+                config_par['data'], None,
+                max_hosts=config_par['max_hosts'],
                 one_host_selection=config_par['one_host_sel'],
                 sigma_pv=config_par['sigma_pv'],
                 z_gal_cosmo=config_par['z_gal_cosmo'],
@@ -682,14 +692,8 @@ def main():
                   and (config_par['snr_threshold'] == 0.0)):
             events = readdata.read_dark_siren_event(
                 config_par['data'], None,
-                zhorizon=config_par['zhorizon'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-        elif (config_par['max_hosts'] != 0):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
                 max_hosts=config_par['max_hosts'],
+                zhorizon=config_par['zhorizon'],
                 one_host_selection=config_par['one_host_sel'],
                 sigma_pv=config_par['sigma_pv'],
                 z_gal_cosmo=config_par['z_gal_cosmo'])
@@ -703,7 +707,8 @@ def main():
         elif (config_par['snr_threshold'] != 0.0):
             if not config_par['reduced_catalog']:
                 events = readdata.read_dark_siren_event(
-                    config_par['data'], None, 
+                    config_par['data'], None,
+                    max_hosts=config_par['max_hosts'],
                     snr_threshold=config_par['snr_threshold'],
                     one_host_selection=config_par['one_host_sel'],
                     sigma_pv=config_par['sigma_pv'],
@@ -711,6 +716,7 @@ def main():
             else:
                 events = readdata.read_dark_siren_event(
                     config_par['data'], None,
+                    max_hosts=config_par['max_hosts'],
                     snr_threshold=config_par['snr_threshold'],
                     one_host_selection=config_par['one_host_sel'],
                     sigma_pv=config_par['sigma_pv'],
@@ -719,6 +725,7 @@ def main():
         else:
             events = readdata.read_dark_siren_event(
                 config_par['data'], None,
+                max_hosts=config_par['max_hosts'],
                 one_host_selection=config_par['one_host_sel'],
                 sigma_pv=config_par['sigma_pv'],
                 z_gal_cosmo=config_par['z_gal_cosmo'])

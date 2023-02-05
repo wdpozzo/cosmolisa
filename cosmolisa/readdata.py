@@ -8,12 +8,11 @@ class Galaxy:
     weight determined by its angular position relative to
     the detector posterior, and magnitude (if available).
     """
-    def __init__(self, redshift, dredshift, weight, dl, magnitude):
+    def __init__(self, redshift, dredshift, weight, magnitude):
         
         self.redshift = redshift
         self.dredshift = dredshift
         self.weight = weight
-        self.dl = dl
         self.magnitude = magnitude
 
 class Event:
@@ -39,9 +38,9 @@ class Event:
                  dl_host,
                  VC = None):
 
-        self.potential_galaxy_hosts = [Galaxy(r, dr, w, dl, m)
-            for r, dr, w, dl, m in zip(redshifts, dredshifts, weights,
-            dl_host, magnitudes)]
+        self.potential_galaxy_hosts = [Galaxy(r, dr, w, m)
+            for r, dr, w, m in zip(redshifts, dredshifts, weights,
+            magnitudes)]
         self.n_hosts = len(self.potential_galaxy_hosts)
         self.ID = ID
         self.dl = dl
@@ -430,7 +429,7 @@ def read_dark_siren_event(input_folder, event_number,
             print("\nSelected {} events from dl={} to dl={} (Mpc)."
                 .format(len(events), events[0].dl, events[len(events)-1].dl))  
 
-        if (max_hosts is not None):
+        if not (max_hosts == 0):
             events = [e for e in events if e.n_hosts <= max_hosts]
             events = sorted(events, key=lambda x: getattr(x, 'n_hosts'))
             print(f"\nSelected {len(events)} events having hosts from"
