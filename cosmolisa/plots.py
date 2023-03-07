@@ -20,7 +20,7 @@ labels_plot = {
     'LambdaCDM': [r'$h$', r'$\Omega_m$'],
     'LambdaCDM_Modified_Xi0n': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
     'LambdaCDM_Modified_fixhom_Xi0n': [r'$\Xi_0$', r'$n$'],
-    'LambdaCDM_Modified_fixhom_Xi0': [r'$\Xi_0$'],
+    'LambdaCDM_Modified_fixhom_Xi0': [r'\Xi_0'],
     'LambdaCDM_Modified_Xi0': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
     'CLambdaCDM': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$'],
     'LambdaCDMDE': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$', 
@@ -157,18 +157,15 @@ def corner_plot(x, **kwargs):
                       name="corner_plot_90CI")
 
     if (kwargs['model'] == 'LambdaCDM_Modified_fixhom_Xi0'):
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['Xi0']),
-                      quantiles_plot=[0.16, 0.5, 0.84],
-                      truths=[kwargs['truths']['Xi0']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_68CI")
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['Xi0']),
-                      quantiles_plot=[0.05, 0.5, 0.95],
-                      truths=[kwargs['truths']['Xi0']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_90CI")
+        par_hist(model=kwargs['model'],
+                 samples=x['Xi0'],
+                 truths=kwargs['truths']['Xi0'],
+                 outdir=kwargs['outdir'],
+                 name="histogram_h_90CI")
+        print(np.shape(x['Xi0']))
+        plt.plot(x['Xi0'])
+        plt.savefig(os.path.join(kwargs['outdir'],'samps.png'), bbox_inches='tight')
+
 
     elif (kwargs['model'] == 'CLambdaCDM'):
         corner_config(model=kwargs['model'], 

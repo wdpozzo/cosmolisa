@@ -249,6 +249,7 @@ cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
         logL_galaxy = (log(hosts[j,2]) - log(sigma_z)
                        - 0.5*score_z*score_z - logTwoPiByTwo)
         logL = log_add(logL, logL_galaxy)
+        # logL = -1/(zmax-zmin)
         
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
     return logL_detector + logL

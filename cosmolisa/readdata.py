@@ -285,35 +285,25 @@ def read_dark_siren_event(input_folder, event_number,
             sys.stderr.write("Reading {0} out of {1} events\r".format(
                 k+1, len(events_list)))
             try:
-                event_file = open(input_folder + "/" + ev + "/ID.dat", 'r')
+                event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
                 # 1      , 2 , 3        , 4 , 5              ,
                 (event_id, dl, rel_sigmadl, Vc, z_observed_true,
                     # 6      , 7        , 8     ,
                     zmin_true, zmax_true, z_true,
-                    # 9 , 10  ,  , , , , , , 17 , 18      , 19
-                    zmin, zmax, _,_,_,_,_,_, snr, snr_true, _) = (event_file
-                    .readline().split(None))
-            except(ValueError):
-                try:
-                    event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
-                    # 1      , 2 , 3        , 4 , 5              ,
-                    (event_id, dl, rel_sigmadl, Vc, z_observed_true,
-                        # 6      , 7        , 8     ,
-                        zmin_true, zmax_true, z_true,
-                        # 9 , 10  ,  , , , , , ,
-                        zmin, zmax, _,_,_,_,_,_,
-                        # 17, 18
-                        snr, snr_true) = event_file.readline().split(None)
-                except(ValueError):
-                    event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
-                    # 1      , 2 , 3        , 4 , 5              ,
-                    (event_id, dl, rel_sigmadl, Vc, z_observed_true,
-                    # 6      , 7        , 8     ,                 
-                    zmin_true, zmax_true, z_true,
-                    # 9 , 10  ,  , , , , , , , , ,
-                    zmin, zmax, _,_,_,_,_,_,_,_,_,
-                    # 20, 21
+                    # 9 , 10  ,  , , , , , ,
+                    zmin, zmax, _,_,_,_,_,_,
+                    # 17, 18
                     snr, snr_true) = event_file.readline().split(None)
+            except(ValueError):
+                event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
+                # 1      , 2 , 3        , 4 , 5              ,
+                (event_id, dl, rel_sigmadl, Vc, z_observed_true,
+                    # 6      , 7        , 8     ,
+                    zmin_true, zmax_true, z_true,
+                    # 9 , 10  ,  , , , , , ,
+                    zmin, zmax, _,_,_,_,_,_,
+                    # 17, 18
+                    snr, snr_true) = str(event_file.readlines()[1:])[2:-4].split(None)
 
             ID = np.int(event_id)
             dl = np.float64(dl)

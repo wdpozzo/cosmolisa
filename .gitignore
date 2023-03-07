@@ -7,4 +7,8 @@ cosmolisa/cosmology.c
 cosmolisa/galaxy.c
 cosmolisa/likelihood.c
 dist/cosmolisa-0.0.0-py3.9-linux-x86_64.egg
-data/EMRI_**
+data/EMRI_*
+**.pyc
+cosmolisa/modified_*
+
+
