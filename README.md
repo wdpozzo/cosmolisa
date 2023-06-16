@@ -15,7 +15,7 @@ Run the following lines from terminal:
 ```
 yes | conda env create -f environment.yml
 conda activate cosmolisa_env
-pip install raynest=1.0.1
+pip install raynest
 export LAL_PREFIX=$HOME/.conda/envs/cosmolisa_env
 python setup.py install
 ```
