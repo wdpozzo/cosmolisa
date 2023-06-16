@@ -410,7 +410,7 @@ class CosmologicalModel(raynest.model.Model):
 
 usage="""\n\n %prog --config-file config.ini\n
     ######################################################################################################################################################
-    IMPORTANT: This code requires the installation of the raynest branch 'massively_parallel': https://github.com/johnveitch/raynest/tree/massively_parallel
+    IMPORTANT: This code requires the installation of the package 'raynest': https://github.com/wdpozzo/raynest
                See the instructions in cosmolisa/README.md.
     ######################################################################################################################################################
 
