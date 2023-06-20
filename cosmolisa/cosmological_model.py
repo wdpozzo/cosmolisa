@@ -236,11 +236,13 @@ class CosmologicalModel(cpnest.model.Model):
             if ('LambdaCDM_h' in self.model):
                 self.O = cs.CosmologicalParameters(
                     x['h'], self.truths['om'], self.truths['ol'],
-                    self.truths['w0'], self.truths['w1'])
+                    self.truths['w0'], self.truths['w1'],
+                    self.truths['Xi0'], self.truths['n'],)
             elif ('LambdaCDM_om' in self.model):
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], x['om'], 1.0-x['om'],
-                    self.truths['w0'], self.truths['w1'])
+                    self.truths['w0'], self.truths['w1'],
+                    self.truths['Xi0'], self.truths['n'],)
             elif ('LambdaCDM' in self.model):
                 self.O = cs.CosmologicalParameters(
                     x['h'], x['om'], 1.0-x['om'], self.truths['w0'],
