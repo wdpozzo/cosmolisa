@@ -18,10 +18,11 @@ labels_plot = {
     'LambdaCDM_h': ['h'],
     'LambdaCDM_om': ['\Omega_m'],
     'LambdaCDM': [r'$h$', r'$\Omega_m$'],
-    'LambdaCDM_Modified_Xi0n': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
-    'LambdaCDM_Modified_fixhom_Xi0n': [r'$\Xi_0$', r'$n$'],
-    'LambdaCDM_Modified_fixhom_Xi0': [r'\Xi_0'],
-    'LambdaCDM_Modified_Xi0': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
+    'Modified_H0_Om0_Xi0_n_GW': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
+    'Modified_H0_Om0_Xi0_GW': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
+    'Modified_Xi0_n_GW': [r'$\Xi_0$', r'$n$'],
+    'Modified_Xi0_GW': [r'\Xi_0'],
+    'Modified_H0_Xi0_GW': [r'$h$', r'$\Xi_0$'],
     'CLambdaCDM': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$'],
     'LambdaCDMDE': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$', 
                     r'$w_0$', r'$w_a$'],
@@ -114,57 +115,35 @@ def corner_plot(x, **kwargs):
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")
 
-    if (kwargs['model'] == 'LambdaCDM_Modified_Xi0n'):
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['h'], x['om'], x['Xi0'], x['n'],),
+    if (kwargs['model'] == 'Modified'):
+        truths = []
+        samps_tuple = []
+        model_name = '_'.join(kwargs['model_segments'])
+        if 'h' in kwargs['model_segments']:
+            samps_tuple.append(x['h'])
+            truths.append(kwargs['truths']['h'])
+        if 'om' in kwargs['model_segments']:
+            samps_tuple.append(x['om'])
+            truths.append(kwargs['truths']['om'])
+        if 'Xi0' in kwargs['model_segments']:
+            samps_tuple.append(x['Xi0'])
+            truths.append(kwargs['truths']['Xi0'])
+        if 'n' in kwargs['model_segments']:
+            samps_tuple.append(x['n'])
+            truths.append(kwargs['truths']['n'])
+        samps_tuple = tuple(samps_tuple)
+        corner_config(model=model_name,
+                      samps_tuple=samps_tuple,
                       quantiles_plot=[0.16, 0.5, 0.84],
-                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0'], kwargs['truths']['n']],
+                      truths=truths,
                       outdir=kwargs['outdir'],
                       name="corner_plot_68CI")
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['h'], x['om'], x['Xi0'], x['n'],),
-                      quantiles_plot=[0.05, 0.5, 0.95],
-                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0'], kwargs['truths']['n']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_90CI")
-
-    if (kwargs['model'] == 'LambdaCDM_Modified_Xi0'):
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['h'], x['om'], x['Xi0'],),
+        corner_config(model=model_name,
+                      samps_tuple=samps_tuple,
                       quantiles_plot=[0.16, 0.5, 0.84],
-                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_68CI")
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['h'], x['om'], x['Xi0'],),
-                      quantiles_plot=[0.05, 0.5, 0.95],
-                      truths=[kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['Xi0']],
+                      truths=truths,
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")
-
-    if (kwargs['model'] == 'LambdaCDM_Modified_fixhom_Xi0n'):
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['Xi0'], x['n'],),
-                      quantiles_plot=[0.16, 0.5, 0.84],
-                      truths=[kwargs['truths']['Xi0'], kwargs['truths']['n']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_68CI")
-        corner_config(model=kwargs['model'],
-                      samps_tuple=(x['Xi0'], x['n'],),
-                      quantiles_plot=[0.05, 0.5, 0.95],
-                      truths=[kwargs['truths']['Xi0'], kwargs['truths']['n']],
-                      outdir=kwargs['outdir'],
-                      name="corner_plot_90CI")
-
-    if (kwargs['model'] == 'LambdaCDM_Modified_fixhom_Xi0'):
-        par_hist(model=kwargs['model'],
-                 samples=x['Xi0'],
-                 truths=kwargs['truths']['Xi0'],
-                 outdir=kwargs['outdir'],
-                 name="histogram_h_90CI")
-        print(np.shape(x['Xi0']))
-        plt.plot(x['Xi0'])
-        plt.savefig(os.path.join(kwargs['outdir'],'samps.png'), bbox_inches='tight')
 
 
     elif (kwargs['model'] == 'CLambdaCDM'):
@@ -301,26 +280,21 @@ def redshift_ev_plot(x, **kwargs):
                 x['h'][i], x['om'][i], 1.0-x['om'][i],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
                 kwargs['truths']['Xi0'], kwargs['truths']['n'])
-        elif ('LambdaCDM_Modified_Xi0n' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], x['om'][i], 1.0-x['om'][i],
+            
+        elif ('Modified' in kwargs['model']):
+            params = [kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
-                x['Xi0'][i], x['n'][i])
-        elif ('LambdaCDM_Modified_Xi0' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], x['om'][i], 1.0-x['om'][i],
-                kwargs['truths']['w0'], kwargs['truths']['w1'],
-                x['Xi0'][i], kwargs['truths']['n'])
-        elif ('LambdaCDM_Modified_fixhom_Xi0n' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
-                kwargs['truths']['w0'], kwargs['truths']['w1'],
-                x['Xi0'][i], x['n'][i])
-        elif ('LambdaCDM_Modified_fixhom_Xi0' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
-                kwargs['truths']['w0'], kwargs['truths']['w1'],
-                x['Xi0'][i], kwargs['truths']['n'])
+                kwargs['truths']['Xi0'], kwargs['truths']['n'],]
+            if 'h' in kwargs['model']:
+                params[0] = x['h'][i]
+            if 'om' in kwargs['model']:
+                params[1] = x['om'][i]
+                params[2] = 1.0-x['om'][i]
+            if 'Xi0' in kwargs['model']:
+                params[5] = x['Xi0'][i]
+            if 'n' in kwargs['model']:
+                params[6] = x['n'][i]
+            O = cs.CosmologicalParameters(*params)
         elif ('CLambdaCDM' in kwargs['model']):
             O = cs.CosmologicalParameters(
                 x['h'][i], x['om'][i], x['ol'][i],

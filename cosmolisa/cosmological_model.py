@@ -74,25 +74,23 @@ class CosmologicalModel(cpnest.model.Model):
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
-        if ('LambdaCDM_Modified_Xi0n' in self.model):
-            self.names = ['h', 'om', 'Xi0', 'n']
-            self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["Xi0"], kwargs['bounds_dict']["n"]]
-            print ('Model: LambdaCDM_Modified_Xi0n', self.names, self.bounds)
-
-        if ('LambdaCDM_Modified_Xi0' in self.model):
-            self.names = ['h', 'om', 'Xi0']
-            self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["Xi0"]]
-            print ('Model: LambdaCDM_Modified_Xi0', self.names, self.bounds)
-
-        if ('LambdaCDM_Modified_fixhom_Xi0n' in self.model):
-            self.names = ['Xi0', 'n']
-            self.bounds = [kwargs['bounds_dict']["Xi0"], kwargs['bounds_dict']["n"]]
-            print ('LambdaCDM_Modified_fixhom_Xi0n', self.names, self.bounds)
-
-        if ('LambdaCDM_Modified_fixhom_Xi0' in self.model):
-            self.names = ['Xi0']
-            self.bounds = [kwargs['bounds_dict']["Xi0"]]
-            print ('LambdaCDM_Modified_fixhom_Xi0', self.names, self.bounds)
+        if ('Modified' in self.model):
+            self.names = []
+            self.bounds = []
+            if 'h' in self.model:
+                self.names.append('h')
+                self.bounds.append(kwargs['bounds_dict']["h"])
+            if 'om' in self.model:
+                self.names.append('om')
+                self.bounds.append(kwargs['bounds_dict']["om"])
+            if 'Xi0' in self.model:
+                self.names = ['Xi0']
+                self.bounds = [kwargs['bounds_dict']["Xi0"]]
+            if 'n' in self.model:
+                self.names.append('n')
+                self.bounds.append(kwargs['bounds_dict']["n"])
+            print ('Model:',self.model, self.names, self.bounds)
+      
 
         if ('LambdaCDM_h' in self.model):
             self.names = ['h']
@@ -259,26 +257,20 @@ class CosmologicalModel(cpnest.model.Model):
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
                     x['w0'], x['w1'])
-            elif ('LambdaCDM_Modified_Xi0n' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], x['om'], 1.0-x['om'], 
+            elif ('Modified' in self.model):
+                params = [self.truths['h'], self.truths['om'], self.truths['ol'],
                     self.truths['w0'], self.truths['w1'],
-                    x['Xi0'], x['n'])
-            elif ('LambdaCDM_Modified_Xi0' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], x['om'], 1.0-x['om'], 
-                    self.truths['w0'], self.truths['w1'],
-                    x['Xi0'], self.truths['n'])
-            elif ('LambdaCDM_Modified_fixhom_Xi0n' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    self.truths['h'], self.truths['om'], self.truths['ol'], 
-                    self.truths['w0'], self.truths['w1'],
-                    x['Xi0'], x['n'])
-            elif ('LambdaCDM_Modified_fixhom_Xi0' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    self.truths['h'], self.truths['om'], self.truths['ol'], 
-                    self.truths['w0'], self.truths['w1'],
-                    x['Xi0'], self.truths['n'])
+                    self.truths['Xi0'], self.truths['n'],]
+                if 'h' in self.model:
+                    params[0] = x['h']
+                if 'om' in self.model:
+                    params[1] = x['om']
+                    params[2] = 1.0-x['om']
+                if 'Xi0' in self.model:
+                    params[5] = x['Xi0']
+                if 'n' in self.model:
+                    params[6] = x['n']
+                self.O = cs.CosmologicalParameters(*params)
             else:
                 self.O = cs.CosmologicalParameters(
                     self.truths['h'], self.truths['om'], self.truths['ol'],
@@ -436,11 +428,7 @@ class CosmologicalModel(cpnest.model.Model):
                         + np.log(self.population_model.pdf(x['z%d'%e.ID])
                         / self.T) for j, e in enumerate(self.data)])
             else:
-                if (('LambdaCDM_Modified_Xi0n' in self.model) 
-                or ('LambdaCDM_Modified_Xi0' in self.model)
-                or ('LambdaCDM_Modified_fixhom_Xi0n' in self.model)
-                or ('LambdaCDM_Modified_fixhom_Xi0' in self.model)
-                ):
+                if ('Modified' in self.model):
                     # print('using modified logL')
                     logL_GW += np.sum([lk.logLikelihood_single_event_Modified(
                             self.hosts[e.ID], e.dl, e.sigmadl, self.O,
@@ -906,18 +894,9 @@ def main():
     elif ('LambdaCDM' in C.model):
         plots.corner_plot(x, model='LambdaCDM',
                             truths=truths, outdir=outdir)
-    elif ('LambdaCDM_Modified_Xi0n' in C.model):
-        plots.corner_plot(x, model='LambdaCDM_Modified_Xi0n',
-                            truths=truths, outdir=outdir)
-    elif ('LambdaCDM_Modified_Xi0' in C.model):
-        plots.corner_plot(x, model='LambdaCDM_Modified_Xi0',
-                            truths=truths, outdir=outdir)
-    elif ('LambdaCDM_Modified_fixhom_Xi0n' in C.model):
-        plots.corner_plot(x, model='LambdaCDM_Modified_fixhom_Xi0n',
-                            truths=truths, outdir=outdir)
-    elif ('LambdaCDM_Modified_fixhom_Xi0' in C.model):
-        plots.corner_plot(x, model='LambdaCDM_Modified_fixhom_Xi0',
-                            truths=truths, outdir=outdir)    
+    elif ('Modified' in C.model):
+        plots.corner_plot(x, model='Modified', model_segments=C.model,
+                            truths=truths, outdir=outdir)  
     elif ('CLambdaCDM' in C.model):
         plots.corner_plot(x, model='CLambdaCDM',
                             truths=truths, outdir=outdir)
