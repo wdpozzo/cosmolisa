@@ -78,6 +78,7 @@ cdef double _loglk_dark_single_event(const double[:,::1] hosts,
 
     # Sum over the observed-galaxy redshifts: p(z_GW | dL, O, M, I) =
     # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
+
     for j in range(N):
         # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
         sigma_z = hosts[j,1] * (1+hosts[j,0])
@@ -86,7 +87,9 @@ cdef double _loglk_dark_single_event(const double[:,::1] hosts,
         logL_galaxy = (log(hosts[j,2]) - log(sigma_z)
                        - 0.5*score_z*score_z - logTwoPiByTwo)
         logL = log_add(logL, logL_galaxy)
-        
+
+    # logL = -1/(zmax-zmin)  
+             
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
     return logL_detector + logL
 
@@ -185,7 +188,9 @@ def logLikelihood_single_event_Modified(const double[:,::1] hosts,
                                CosmologicalParameters omega,
                                const double event_redshift,
                                const double zmin=0.0,
-                               const double zmax=1.0):
+                               const double zmax=1.0,
+                               int theory=1
+                               ):
     """Likelihood function p( Di | O, M, I) for a single GW event
     of data Di assuming cosmological model M and parameters O.
     Following the formalism of <arXiv:2102.01708>.
@@ -203,7 +208,7 @@ def logLikelihood_single_event_Modified(const double[:,::1] hosts,
     zmax: :obj: 'numpy.double': maximum GW redshift
     """
     return _logLikelihood_single_event_Modified(hosts, meandl, sigmadl, omega,
-                                       event_redshift, zmin=zmin, zmax=zmax)
+                                       event_redshift, zmin=zmin, zmax=zmax, theory=theory)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -215,7 +220,8 @@ cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
                                         CosmologicalParameters omega,
                                         const double event_redshift,
                                         double zmin=0.0,
-                                        double zmax=1.0) nogil:
+                                        double zmax=1.0,
+                                        int theory=1) nogil:
 
     cdef unsigned int j
     cdef double dl
@@ -229,7 +235,11 @@ cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
 
     # Predict dL from the cosmology O and the redshift z_gw:
     # d(O, z_GW).
-    dl = omega._LuminosityDistance_Modified_Xi0n(event_redshift)
+    if theory == 1:
+        dl = omega._LuminosityDistance_Modified_Xi0n(event_redshift)
+    elif theory == 2:
+        dl=0
+        # dl = omega._LuminosityDistance_Modified_bn(event_redshift)
     # sigma_WL and combined sigma entering the detector likelihood:
     # p(Di | dL, z_gw, M, I).
     weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
@@ -249,7 +259,8 @@ cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
         logL_galaxy = (log(hosts[j,2]) - log(sigma_z)
                        - 0.5*score_z*score_z - logTwoPiByTwo)
         logL = log_add(logL, logL_galaxy)
-        # logL = -1/(zmax-zmin)
+
+    # logL = -1/(zmax-zmin)
         
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
     return logL_detector + logL

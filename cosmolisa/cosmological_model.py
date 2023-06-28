@@ -231,33 +231,7 @@ class CosmologicalModel(cpnest.model.Model):
         if np.isfinite(logP):    
             # Check for the cosmological model and
             # define the CosmologicalParameter object.
-            if ('LambdaCDM_h' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], self.truths['om'], self.truths['ol'],
-                    self.truths['w0'], self.truths['w1'],
-                    self.truths['Xi0'], self.truths['n'],)
-            elif ('LambdaCDM_om' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    self.truths['h'], x['om'], 1.0-x['om'],
-                    self.truths['w0'], self.truths['w1'],
-                    self.truths['Xi0'], self.truths['n'],)
-            elif ('LambdaCDM' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], x['om'], 1.0-x['om'], self.truths['w0'],
-                    self.truths['w1'],
-                    self.truths['Xi0'], self.truths['n'],)
-            elif ('CLambdaCDM' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], x['om'], x['ol'], self.truths['w0'],
-                    self.truths['w1'])
-            elif ('LambdaCDMDE' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    x['h'], x['om'], x['ol'], x['w0'], x['w1'])
-            elif ('DE' in self.model):
-                self.O = cs.CosmologicalParameters(
-                    self.truths['h'], self.truths['om'], self.truths['ol'],
-                    x['w0'], x['w1'])
-            elif ('Modified' in self.model):
+            if ('Modified' in self.model):
                 params = [self.truths['h'], self.truths['om'], self.truths['ol'],
                     self.truths['w0'], self.truths['w1'],
                     self.truths['Xi0'], self.truths['n'],]
@@ -272,9 +246,23 @@ class CosmologicalModel(cpnest.model.Model):
                     params[6] = x['n']
                 self.O = cs.CosmologicalParameters(*params)
             else:
-                self.O = cs.CosmologicalParameters(
-                    self.truths['h'], self.truths['om'], self.truths['ol'],
-                    self.truths['w0'],self.truths['w1'])
+                params = [self.truths['h'], self.truths['om'], self.truths['ol'],
+                    self.truths['w0'], self.truths['w1'],
+                    self.truths['Xi0'], self.truths['n'],]
+                if ('LambdaCDM_h' in self.model):
+                    params[0] = x['h']
+                elif ('LambdaCDM_om' in self.model):
+                    params[1] = x['om']
+                    params[2] = 1.0-x['om']
+                elif ('LambdaCDM' in self.model):
+                    params[:3] = x['h'], x['om'], 1.0-x['om']
+                elif ('CLambdaCDM' in self.model):
+                    params[:3] = x['h'], x['om'], x['ol']
+                elif ('LambdaCDMDE' in self.model):
+                    params[:5] = x['h'], x['om'], x['ol'], x['w0'], x['w1']
+                elif ('DE' in self.model):
+                    params[3], params[4] = x['w0'], x['w1']
+                self.O = cs.CosmologicalParameters(*params)
 
             # Check for the rate model or GW corrections.
             if ('Rate' in self.model):
@@ -429,10 +417,15 @@ class CosmologicalModel(cpnest.model.Model):
                         / self.T) for j, e in enumerate(self.data)])
             else:
                 if ('Modified' in self.model):
-                    # print('using modified logL')
+                    ''''
+                    theory1: Xi0+n
+                    theory2: b+nb
+                    theory3: Higher dimension
+
+                    '''
                     logL_GW += np.sum([lk.logLikelihood_single_event_Modified(
                             self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
+                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax, theory=1)
                             for j, e in enumerate(self.data)])
                 else:
                     if (self.event_class == 'dark_siren'):
