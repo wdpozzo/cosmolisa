@@ -77,15 +77,15 @@ class CosmologicalModel(cpnest.model.Model):
         if ('Modified' in self.model):
             self.names = []
             self.bounds = []
-            if 'h' in self.model:
+            if 'H0' in self.model:
                 self.names.append('h')
                 self.bounds.append(kwargs['bounds_dict']["h"])
-            if 'om' in self.model:
+            if 'Om0' in self.model:
                 self.names.append('om')
                 self.bounds.append(kwargs['bounds_dict']["om"])
             if 'Xi0' in self.model:
-                self.names = ['Xi0']
-                self.bounds = [kwargs['bounds_dict']["Xi0"]]
+                self.names.append('Xi0')
+                self.bounds.append(kwargs['bounds_dict']["Xi0"])
             if 'n' in self.model:
                 self.names.append('n')
                 self.bounds.append(kwargs['bounds_dict']["n"])
@@ -261,9 +261,9 @@ class CosmologicalModel(cpnest.model.Model):
                 params = [self.truths['h'], self.truths['om'], self.truths['ol'],
                     self.truths['w0'], self.truths['w1'],
                     self.truths['Xi0'], self.truths['n'],]
-                if 'h' in self.model:
+                if 'H0' in self.model:
                     params[0] = x['h']
-                if 'om' in self.model:
+                if 'Om0' in self.model:
                     params[1] = x['om']
                     params[2] = 1.0-x['om']
                 if 'Xi0' in self.model:

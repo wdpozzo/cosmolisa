@@ -119,10 +119,10 @@ def corner_plot(x, **kwargs):
         truths = []
         samps_tuple = []
         model_name = '_'.join(kwargs['model_segments'])
-        if 'h' in kwargs['model_segments']:
+        if 'H0' in kwargs['model_segments']:
             samps_tuple.append(x['h'])
             truths.append(kwargs['truths']['h'])
-        if 'om' in kwargs['model_segments']:
+        if 'Om0' in kwargs['model_segments']:
             samps_tuple.append(x['om'])
             truths.append(kwargs['truths']['om'])
         if 'Xi0' in kwargs['model_segments']:
@@ -285,9 +285,9 @@ def redshift_ev_plot(x, **kwargs):
             params = [kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
                 kwargs['truths']['Xi0'], kwargs['truths']['n'],]
-            if 'h' in kwargs['model']:
+            if 'H0' in kwargs['model']:
                 params[0] = x['h'][i]
-            if 'om' in kwargs['model']:
+            if 'Om0' in kwargs['model']:
                 params[1] = x['om'][i]
                 params[2] = 1.0-x['om'][i]
             if 'Xi0' in kwargs['model']:
