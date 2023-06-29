@@ -84,38 +84,47 @@ class CosmologicalModel(cpnest.model.Model):
                 self.names.append('om')
                 self.bounds.append(kwargs['bounds_dict']["om"])
             if 'Xi0' in self.model:
+                self.theory = 1
                 self.names.append('Xi0')
                 self.bounds.append(kwargs['bounds_dict']["Xi0"])
             if 'n' in self.model:
                 self.names.append('n')
                 self.bounds.append(kwargs['bounds_dict']["n"])
-            print ('Model:',self.model, self.names, self.bounds)
+            if 'b' in self.model:
+                self.theory = 2
+                self.names.append('b')
+                self.bounds.append(kwargs['bounds_dict']["b"])
+            if 'nb' in self.model:
+                self.names.append('nb')
+                self.bounds.append(kwargs['bounds_dict']["nb"])
+            print ('Model:',self.model, 'names=', self.names, 'bounds=', self.bounds)
       
+        else:
+            self.theory = 0
+            if ('LambdaCDM_h' in self.model):
+                self.names = ['h']
+                self.bounds = [kwargs['bounds_dict']["h"]]
 
-        if ('LambdaCDM_h' in self.model):
-            self.names = ['h']
-            self.bounds = [kwargs['bounds_dict']["h"]]
+            if ('LambdaCDM_om' in self.model):
+                self.names = ['om']
+                self.bounds = [kwargs['bounds_dict']["om"]]
 
-        if ('LambdaCDM_om' in self.model):
-            self.names = ['om']
-            self.bounds = [kwargs['bounds_dict']["om"]]
+            if ('LambdaCDM' in self.model):
+                self.names = ['h', 'om']
+                self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"]]
 
-        if ('LambdaCDM' in self.model):
-            self.names = ['h', 'om']
-            self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"]]
+            if ('CLambdaCDM' in self.model):
+                self.names = ['h', 'om', 'ol']
+                self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["ol"]]
 
-        if ('CLambdaCDM' in self.model):
-            self.names = ['h', 'om', 'ol']
-            self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["ol"]]
+            if ('LambdaCDMDE' in self.model):
+                self.names = ['h', 'om', 'ol', 'w0', 'w1']
+                self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["ol"], 
+                kwargs['bounds_dict']["w0"], kwargs['bounds_dict']["w1"]]
 
-        if ('LambdaCDMDE' in self.model):
-            self.names = ['h', 'om', 'ol', 'w0', 'w1']
-            self.bounds = [kwargs['bounds_dict']["h"], kwargs['bounds_dict']["om"], kwargs['bounds_dict']["ol"], 
-            kwargs['bounds_dict']["w0"], kwargs['bounds_dict']["w1"]]
-
-        if ('DE' in self.model):
-            self.names = ['w0', 'w1']
-            self.bounds = [kwargs['bounds_dict']["w0"], kwargs['bounds_dict']["w1"]]
+            if ('DE' in self.model):
+                self.names = ['w0', 'w1']
+                self.bounds = [kwargs['bounds_dict']["w0"], kwargs['bounds_dict']["w1"]]
 
         if ('GW' in self.model):
             self.gw = 1
@@ -231,10 +240,11 @@ class CosmologicalModel(cpnest.model.Model):
         if np.isfinite(logP):    
             # Check for the cosmological model and
             # define the CosmologicalParameter object.
-            if ('Modified' in self.model):
-                params = [self.truths['h'], self.truths['om'], self.truths['ol'],
+            params = [self.truths['h'], self.truths['om'], self.truths['ol'],
                     self.truths['w0'], self.truths['w1'],
-                    self.truths['Xi0'], self.truths['n'],]
+                    self.truths['Xi0'], self.truths['n'],
+                    self.truths['b'], self.truths['nb'],]
+            if ('Modified' in self.model):
                 if 'H0' in self.model:
                     params[0] = x['h']
                 if 'Om0' in self.model:
@@ -244,11 +254,11 @@ class CosmologicalModel(cpnest.model.Model):
                     params[5] = x['Xi0']
                 if 'n' in self.model:
                     params[6] = x['n']
-                self.O = cs.CosmologicalParameters(*params)
+                if 'b' in self.model:
+                    params[7] = x['b']
+                if 'nb' in self.model:
+                    params[8] = x['nb']
             else:
-                params = [self.truths['h'], self.truths['om'], self.truths['ol'],
-                    self.truths['w0'], self.truths['w1'],
-                    self.truths['Xi0'], self.truths['n'],]
                 if ('LambdaCDM_h' in self.model):
                     params[0] = x['h']
                 elif ('LambdaCDM_om' in self.model):
@@ -262,7 +272,7 @@ class CosmologicalModel(cpnest.model.Model):
                     params[:5] = x['h'], x['om'], x['ol'], x['w0'], x['w1']
                 elif ('DE' in self.model):
                     params[3], params[4] = x['w0'], x['w1']
-                self.O = cs.CosmologicalParameters(*params)
+            self.O = cs.CosmologicalParameters(*params)
 
             # Check for the rate model or GW corrections.
             if ('Rate' in self.model):
@@ -418,6 +428,7 @@ class CosmologicalModel(cpnest.model.Model):
             else:
                 if ('Modified' in self.model):
                     ''''
+                    theory0: LambdaCDM
                     theory1: Xi0+n
                     theory2: b+nb
                     theory3: Higher dimension
@@ -425,7 +436,7 @@ class CosmologicalModel(cpnest.model.Model):
                     '''
                     logL_GW += np.sum([lk.logLikelihood_single_event_Modified(
                             self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax, theory=1)
+                            x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax, theory=self.theory)
                             for j, e in enumerate(self.data)])
                 else:
                     if (self.event_class == 'dark_siren'):
@@ -521,7 +532,8 @@ def main():
         'outdir': "./default_dir",
         'event_class': '',
         'model': '',
-        'truth_par': {"h": 0.673, "om": 0.315, "ol": 0.685, "Xi0": 1.0, "n": 0.8},
+        'truth_par': {"h": 0.673, "om": 0.315, "ol": 0.685, 
+                      "Xi0": 1.0, "n": 0.0, "b": 0., "nb": 0.,},
         'corrections': '',
         'random': 0,
         'zhorizon': "1000.0",
@@ -556,7 +568,7 @@ def main():
         'obj_store_mem': 2e9,
         'checkpoint_int': 10800,
         'resume': 0,
-        'bounds_dict': {"h": [0.6, 0.86], "om": [0.04, 0.5], "Xi0": [1.0,1.0], "n":[0.8,0.8], "ol":[0.0, 1.0], "w0": [-3.0, -0.3], "w1":[-1.0, 1.0]},
+        'bounds_dict': {"h": [0.6, 0.86], "om": [0.04, 0.5], "Xi0": [1.0, 1.0], "n":[0.0, 0.0], "b": [0.0, 0.0], "nb":[0.0, 0.0], "ol":[0.0, 1.0], "w0": [-3.0, -0.3], "w1":[-1.0, 1.0]},
         }
 
     for key in config_par:
@@ -613,6 +625,8 @@ def main():
         'w1': 0.0,
         'Xi0': config_par['truth_par']['Xi0'],   
         'n': config_par['truth_par']['n'],
+        'b': config_par['truth_par']['b'],   
+        'nb': config_par['truth_par']['nb'],
         'r0': 5e-10,
         'p1': 41.0,
         'p2': 2.4,
@@ -637,6 +651,8 @@ def main():
                                            truths['w1'],
                                            truths['Xi0'],
                                            truths['n'],
+                                           truths['b'],
+                                           truths['nb'],
                                            )
 
     if ("EMRI_SAMPLE_MODEL101" in config_par['data']):
@@ -905,7 +921,7 @@ def main():
             plots.redshift_ev_plot(x, model=C.model, event=e, 
                                    em_sel=config_par['em_selection'],
                                    truths=truths, omega_true=omega_true,
-                                   outdir=outdir)    
+                                   outdir=outdir, theory=C.theory)    
     elif (config_par['event_class'] == "MBHB"):
         plots.MBHB_regression(x, model=C.model, data=C.data, truths=truths,
                               omega_true=omega_true, outdir=outdir)

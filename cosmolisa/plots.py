@@ -18,11 +18,19 @@ labels_plot = {
     'LambdaCDM_h': ['h'],
     'LambdaCDM_om': ['\Omega_m'],
     'LambdaCDM': [r'$h$', r'$\Omega_m$'],
+
     'Modified_H0_Om0_Xi0_n_GW': [r'$h$', r'$\Omega_m$', r'$\Xi_0$', r'$n$'],
     'Modified_H0_Om0_Xi0_GW': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
+    'Modified_H0_Xi0_GW': [r'$h$', r'$\Xi_0$'],
     'Modified_Xi0_n_GW': [r'$\Xi_0$', r'$n$'],
     'Modified_Xi0_GW': [r'\Xi_0'],
-    'Modified_H0_Xi0_GW': [r'$h$', r'$\Xi_0$'],
+
+    'Modified_H0_Om0_b_nb_GW': [r'$h$', r'$\Omega_m$', r'$b$', r'$n$'],
+    'Modified_H0_Om0_b_GW': [r'$h$', r'$\Omega_m$', r'$b$'],
+    'Modified_H0_b_GW': [r'$h$', r'$b$'],
+    'Modified_b_nb_GW': [r'$b$', r'$n$'],
+    'Modified_b_GW': [r'b'],
+
     'CLambdaCDM': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$'],
     'LambdaCDMDE': [r'$h$', r'$\Omega_m$', r'$\Omega_\Lambda$', 
                     r'$w_0$', r'$w_a$'],
@@ -131,6 +139,12 @@ def corner_plot(x, **kwargs):
         if 'n' in kwargs['model_segments']:
             samps_tuple.append(x['n'])
             truths.append(kwargs['truths']['n'])
+        if 'b' in kwargs['model_segments']:
+            samps_tuple.append(x['b'])
+            truths.append(kwargs['truths']['b'])
+        if 'nb' in kwargs['model_segments']:
+            samps_tuple.append(x['nb'])
+            truths.append(kwargs['truths']['nb'])
         samps_tuple = tuple(samps_tuple)
         corner_config(model=model_name,
                       samps_tuple=samps_tuple,
@@ -202,6 +216,13 @@ def corner_plot(x, **kwargs):
 
 
 def redshift_ev_plot(x, **kwargs):
+    if kwargs['theory'] == 0:
+        method = "LuminosityDistance"
+    elif kwargs['theory'] == 1:
+        method = "LuminosityDistance_Modified_Xi0n"
+    elif kwargs['theory'] == 2:
+        method = "LuminosityDistance_Modified_bn"
+
     """Plot single-event redshift posterior and 
     single-event likelihood."""
     fig = plt.figure()
@@ -267,24 +288,12 @@ def redshift_ev_plot(x, **kwargs):
     distance_likelihood = []
     print("Making redshift plot of event", kwargs['event'].ID)
     for i in range(x.shape[0])[::10]:
-        if ('LambdaCDM_h' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], kwargs['truths']['om'], kwargs['truths']['ol'],
-                kwargs['truths']['w0'], kwargs['truths']['w1'])
-        elif ('LambdaCDM_om' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                kwargs['truths']['h'], x['om'][i], kwargs['truths']['ol'],
-                kwargs['truths']['w0'], kwargs['truths']['w1'])
-        elif ('LambdaCDM' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], x['om'][i], 1.0-x['om'][i],
+        params = [kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
                 kwargs['truths']['w0'], kwargs['truths']['w1'],
-                kwargs['truths']['Xi0'], kwargs['truths']['n'])
-            
-        elif ('Modified' in kwargs['model']):
-            params = [kwargs['truths']['h'], kwargs['truths']['om'], kwargs['truths']['ol'],
-                kwargs['truths']['w0'], kwargs['truths']['w1'],
-                kwargs['truths']['Xi0'], kwargs['truths']['n'],]
+                kwargs['truths']['Xi0'], kwargs['truths']['n'],
+                kwargs['truths']['b'], kwargs['truths']['nb'],
+                ]       
+        if ('Modified' in kwargs['model']):
             if 'H0' in kwargs['model']:
                 params[0] = x['h'][i]
             if 'Om0' in kwargs['model']:
@@ -294,23 +303,31 @@ def redshift_ev_plot(x, **kwargs):
                 params[5] = x['Xi0'][i]
             if 'n' in kwargs['model']:
                 params[6] = x['n'][i]
-            O = cs.CosmologicalParameters(*params)
-        elif ('CLambdaCDM' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], x['om'][i], x['ol'][i],
-                kwargs['truths']['w0'], kwargs['truths']['w1'])
-        elif ('LambdaCDMDE' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                x['h'][i], x['om'][i], x['ol'][i], x['w0'][i], x['w1'][i])
-        elif ('DE' in kwargs['model']):
-            O = cs.CosmologicalParameters(
-                kwargs['truths']['h'], kwargs['truths']['om'], 
-                kwargs['truths']['ol'], x['w0'][i], x['w1'][i])
+            if 'b' in kwargs['model']:
+                params[7] = x['b'][i]
+            if 'nb' in kwargs['model']:
+                params[8] = x['nb'][i]
+        else:
+            if ('LambdaCDM_h' in kwargs['model']):
+                params[0] = x['h'][i]
+            elif ('LambdaCDM_om' in kwargs['model']):
+                params[1] = x['om'][i]
+                params[2] = 1.0-x['om'][i]
+            elif ('LambdaCDM' in kwargs['model']):
+                params[:3] = x['h'][i], x['om'][i], 1.0-x['om'][i]
+            elif ('CLambdaCDM' in kwargs['model']):
+                params[:3] = x['h'][i], x['om'][i], x['ol'][i]
+            elif ('LambdaCDMDE' in kwargs['model']):
+                params[:5] = x['h'][i], x['om'][i], x['ol'][i], x['w0'][i], x['w1'][i]
+            elif ('DE' in kwargs['model']):
+                params[3], params[4] = x['w0'][i], x['w1'][i]
+        O = cs.CosmologicalParameters(*params)
         # distance_likelihood.append(np.array([lk.logLikelihood_single_event(
         #    C.hosts[kwargs['event'].ID], kwargs['event'].dl, 
         #    kwargs['event'].sigmadl, O, zi) for zi in z]))
+        func = getattr(O, method) 
         distance_likelihood.append(
-            np.array([-0.5*((O.LuminosityDistance(zi) - kwargs['event'].dl)
+            np.array([-0.5*((func(zi) - kwargs['event'].dl)
             / kwargs['event'].sigmadl)**2 for zi in z]))
         O.DestroyCosmologicalParameters()
     distance_likelihood = np.exp(np.array(distance_likelihood))
@@ -319,13 +336,14 @@ def redshift_ev_plot(x, **kwargs):
     ax2 = ax.twinx()
     ax2.plot(z, m, linestyle='dashed', color='k', lw=0.75)
     ax2.fill_between(z, l, h,facecolor='magenta', alpha=0.5)
+    func = getattr(kwargs['omega_true'], method) 
     ax2.plot(z, np.exp(np.array([-0.5*(
-        (kwargs['omega_true'].LuminosityDistance(zi)-kwargs['event'].dl)
-        /kwargs['event'].sigmadl)**2 for zi in z])),
-        linestyle = 'dashed', color='gold', lw=1.5)
-    ax.axvline(lk.find_redshift(kwargs['omega_true'], kwargs['event'].dl),
-        linestyle='dotted', lw=0.8, color='red')
-    ax.axvline(kwargs['event'].z_true, linestyle='dotted', lw=0.8, color='k')
+            (func(zi)-kwargs['event'].dl)
+            /kwargs['event'].sigmadl)**2 for zi in z])),
+            linestyle = 'dashed', color='gold', lw=1.5) #金色：红线附近的分布       
+    ax.axvline(lk.find_redshift(kwargs['omega_true'], kwargs['event'].dl, kwargs['theory']),
+        linestyle='dotted', lw=0.8, color='red') #红竖虚线：用宿主dl以及真实宇宙学参数恢复的z
+    ax.axvline(kwargs['event'].z_true, linestyle='dotted', lw=0.8, color='k') #黑竖虚线：z真值
     ax.hist(x['z%d'%kwargs['event'].ID],
         bins=z, density=True, alpha=0.5, facecolor='green')
     ax.hist(x['z%d'%kwargs['event'].ID],

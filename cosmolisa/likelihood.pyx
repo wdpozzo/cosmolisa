@@ -238,7 +238,7 @@ cdef double _logLikelihood_single_event_Modified(const double[:,::1] hosts,
     if theory == 1:
         dl = omega._LuminosityDistance_Modified_Xi0n(event_redshift)
     elif theory == 2:
-        dl=0
+        dl = omega._LuminosityDistance_Modified_bn(event_redshift)
         # dl = omega._LuminosityDistance_Modified_bn(event_redshift)
     # sigma_WL and combined sigma entering the detector likelihood:
     # p(Di | dL, z_gw, M, I).
@@ -333,11 +333,16 @@ cdef double _logLikelihood_single_event_sel_fun(const double[:,::1] hosts,
     return logL + log1p(-p_out_cat)
 
 
-cpdef double find_redshift(CosmologicalParameters omega, double dl):
-    return newton(objective, 1.0, args=(omega,dl))
+cpdef double find_redshift(CosmologicalParameters omega, double dl, int theory):
+    return newton(objective, 1.0, args=(omega,dl,theory))
 
-cdef double objective(double z, CosmologicalParameters omega, double dl):
-    return dl - omega._LuminosityDistance(z)
+cdef double objective(double z, CosmologicalParameters omega, double dl, int theory):
+    if theory == 0:
+        return dl - omega._LuminosityDistance(z)
+    elif theory == 1:
+        return dl - omega._LuminosityDistance_Modified_Xi0n(z)
+    elif theory == 2:
+        return dl - omega._LuminosityDistance_Modified_bn(z)
 
 def logLikelihood_single_event_rate_only(double z,
                                          PopulationModel PopMod,
