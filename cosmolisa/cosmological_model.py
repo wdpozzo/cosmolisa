@@ -469,7 +469,7 @@ usage="""\n\n %prog --config-file config.ini\n
     'data'                 Default: ''.                                      Data location.
     'outdir'               Default: './default_dir'.                         Directory for output.
     'event_class'          Default: ''.                                      Class of the event(s) ['dark_siren', 'MBHB'].
-    'model'                Default: ''.                                      Specify the cosmological model to assume for the analysis ['LambdaCDM', 'LambdaCDM_h', LambdaCDM_om, 'CLambdaCDM', 'LambdaCDMDE', 'DE'] and the type of analysis ['GW', 'Rate', 'Luminosity'] separated by a '+'.
+    'model'                Default: ''.                                      Specify the cosmological model to assume for the analysis ['LambdaCDM', 'LambdaCDM_h', LambdaCDM_om, 'CLambdaCDM', 'LambdaCDMDE', 'DE',  Modified+H0+Om0+b, Modified+H0+Om0+b+nb, Modified+b+nb, Modified+H0+b, Modified+b, Modified+H0+Om0+Xi0, Modified+H0+Om0+Xi0+n, Modified+Xi0+n, Modified+H0+Xi0, Modified+Xi0] and the type of analysis ['GW', 'Rate', 'Luminosity'] separated by a '+'.
     'truths'               Default: {"h": 0.673, "om": 0.315, "ol": 0.685}.  Cosmology truths values.
     'corrections'          Default: ''.                                      Family of corrections ('GW', 'EM') separated by a '+'
     'random'               Default: 0.                                       Run a joint analysis with N events, randomly selected.
@@ -533,7 +533,7 @@ def main():
         'event_class': '',
         'model': '',
         'truth_par': {"h": 0.673, "om": 0.315, "ol": 0.685, 
-                      "Xi0": 1.0, "n": 0.0, "b": 0., "nb": 0.,},
+                      "Xi0": 1.0, "n": 0.0, "b": 0., "nb": 1.,},
         'corrections': '',
         'random': 0,
         'zhorizon': "1000.0",
@@ -568,7 +568,7 @@ def main():
         'obj_store_mem': 2e9,
         'checkpoint_int': 10800,
         'resume': 0,
-        'bounds_dict': {"h": [0.6, 0.86], "om": [0.04, 0.5], "Xi0": [1.0, 1.0], "n":[0.0, 0.0], "b": [0.0, 0.0], "nb":[0.0, 0.0], "ol":[0.0, 1.0], "w0": [-3.0, -0.3], "w1":[-1.0, 1.0]},
+        'bounds_dict': {"h": [0.6, 0.86], "om": [0.04, 0.5], "Xi0": [1.0, 1.0], "n":[0.0, 0.0], "b": [0.0, 0.0], "nb":[1.0, 1.0], "ol":[0.0, 1.0], "w0": [-3.0, -0.3], "w1":[-1.0, 1.0]},
         }
 
     for key in config_par:
