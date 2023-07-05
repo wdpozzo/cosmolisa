@@ -17,7 +17,9 @@ from cosmolisa import cosmology as cs
 from cosmolisa import likelihood as lk
 from cosmolisa import galaxy as gal
 from cosmolisa import astrophysics as astro
-import raynest.model
+# import nessai
+from nessai.model import Model
+from nessai.flowsampler import FlowSampler
 
 # Parameters used to compute GW corrections.
 # From log-linear regressions on the full catalogs.
@@ -42,18 +44,18 @@ correction_constants = {
         },
     }
 
-class CosmologicalModel(raynest.model.Model):
+class CosmologicalModel(Model):
     """CosmologicalModel class:
     Data, likelihood, prior, and settings of the analysis
     are specified here. The abstract modules 'log_prior' and
     'log_likelihood', as well as the attributes 'names' and
-    'bounds', are inherited from raynest.raynest.Model and
+    'bounds', are inherited from nessai.model.Model and
     have to be explicitly defined inside this class.
     """
 
     def __init__(self, model, data, corrections, *args, **kwargs):
 
-        super(CosmologicalModel, self).__init__()
+        # super(CosmologicalModel, self).__init__()
         self.data = data
         self.N = len(self.data)
         self.event_class = kwargs['event_class']
@@ -76,56 +78,58 @@ class CosmologicalModel(raynest.model.Model):
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
-        self.names = []
-        self.bounds = []
+        self.names_list = []
+        self.bounds_list = dict()
 
         if ('h' in self.model):
-            self.names.append('h')
-            self.bounds.append(kwargs['prior_bounds']['h'])
+            self.names_list.append('h')
+            self.bounds_list['h'] = kwargs['prior_bounds']['h']
 
         if ('om' in self.model):
-            self.names.append('om')
-            self.bounds.append(kwargs['prior_bounds']['om'])
+            self.names_list.append('om')
+            self.bounds_list['om'] = kwargs['prior_bounds']['om']
 
         if ('ol' in self.model):
-            self.names.append('ol')
-            self.bounds.append(kwargs['prior_bounds']['ol'])
+            self.names_list.append('ol')
+            self.bounds_list['ol'] = kwargs['prior_bounds']['ol']
 
         if ('w0' in self.model):
-            self.names.append('w0')
-            self.bounds.append(kwargs['prior_bounds']['w0'])
+            self.names_list.append('w0')
+            self.bounds_list['w0'] = kwargs['prior_bounds']['w0']
 
         if ('w1' in self.model):
-            self.names.append('w1')
-            self.bounds.append(kwargs['prior_bounds']['w1'])
+            self.names_list.append('w1')
+            self.bounds_list['w1'] = kwargs['prior_bounds']['w1']
 
         if ('Xi0' in self.model):
-            self.names.append('Xi0')
-            self.bounds.append(kwargs['prior_bounds']['Xi0'])
+            self.names_list.append('Xi0')
+            self.bounds_list['Xi0'] = kwargs['prior_bounds']['Xi0']
 
         if ('n1' in self.model):
-            self.names.append('n1')
-            self.bounds.append(kwargs['prior_bounds']['n1'])
+            self.names_list.append('n1')
+            self.bounds_list['n1'] = kwargs['prior_bounds']['n1']
 
         if ('b' in self.model):
-            self.names.append('b')
-            self.bounds.append(kwargs['prior_bounds']['b'])
+            self.names_list.append('b')
+            self.bounds_list['b'] = kwargs['prior_bounds']['b']
 
         if ('n2' in self.model):
-            self.names.append('n2')
-            self.bounds.append(kwargs['prior_bounds']['n2'])
-
+            self.names_list.append('n2')
+            self.bounds_list['n2'] = kwargs['prior_bounds']['n2']
         # Some consistency checks.
-        for par in self.names:
+        for par in self.names_list:
             assert kwargs['prior_bounds'][par][0] <= self.truths[par], (
              f"{par}: your lower prior bound excludes the true value!")
             assert kwargs['prior_bounds'][par][1] >= self.truths[par], (
              f"{par}: your upper prior bound excludes the true value!")
-        if 'Xi0' in self.names or 'n1' in self.names:
-            if 'b' in self.names or 'n2' in self.names:
+        if 'Xi0' in self.names_list or 'n1' in self.names_list:
+            if 'b' in self.names_list or 'n2' in self.names_list:
                 print("The chosen beyondGR parameters are not consistent. "
                       "Exiting.")
                 exit() 
+
+        self.names = self.names_list
+        self.bounds = self.bounds_list
 
         if ('GW' in self.model):
             self.gw = 1
@@ -237,9 +241,12 @@ class CosmologicalModel(raynest.model.Model):
         in the list 'names' with ranges specified in 'bounds').
         It also defines objects used in other class modules.
         """
-        logP = super(CosmologicalModel, self).log_prior(x)
-        
-        if np.isfinite(logP):    
+        # logP = super(CosmologicalModel, self).log_prior(x)
+        logP = np.log(self.in_bounds(x), dtype="float")
+        for n in self.names:
+            logP -= np.log(self.bounds[n][1] - self.bounds[n][0])
+        print(logP)
+        if np.isfinite(logP).all():    
             # Check for the cosmological model and
             # define the CosmologicalParameter object.
             cosmo_par = [self.truths['h'], self.truths['om'],
@@ -317,10 +324,10 @@ class CosmologicalModel(raynest.model.Model):
         It implements the inference model settings according
         to the options specified by the user.
         """
-        logL_GW = 0.0
-        logL_rate = 0.0
-        logL_luminosity = 0.0
-        
+        logL_GW = np.zeros(x.size)
+        logL_rate = np.zeros(x.size)
+        logL_luminosity = np.zeros(x.size)
+
         # If we are looking at the luminosity function only, go here.
         if ((self.luminosity == 1) and (self.gw == 0)):
             for e in self.data:
@@ -447,15 +454,21 @@ class CosmologicalModel(raynest.model.Model):
                                 x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
                                 for j, e in enumerate(self.data)])
                     
+        # FIXME
+        # IF uncommented, the second time the code passed through
+        # the line below, it raises the following error:
+        # python(8572,0x1de1f5e00) malloc: *** error for object 0x6000033338c0: pointer being freed was not allocated
+        # python(8572,0x1de1f5e00) malloc: *** set a breakpoint in malloc_error_break to debug
+        # Abort trap: 6
 
-        self.O.DestroyCosmologicalParameters()
+        # self.O.DestroyCosmologicalParameters()
 
         return logL_GW + logL_rate + logL_luminosity
 
 
 usage="""\n\n %prog --config-file config.ini\n
     ######################################################################################################################################################
-    IMPORTANT: This code requires the installation of the 'raynest' package: https://github.com/wdpozzo/raynest
+    IMPORTANT: This code requires the installation of the 'nessai' package: https://github.com/mj-will/nessai
                See the instructions in cosmolisa/README.md.
     ######################################################################################################################################################
 
@@ -588,12 +601,12 @@ def main():
         outdir = "default_dir"
     if not os.path.exists(outdir):
         os.makedirs(outdir)
-    os.system("mkdir -p {}/raynest".format(outdir))
+    os.system("mkdir -p {}/nessai".format(outdir))
     os.system("mkdir -p {}/Plots".format(outdir))
     #FIXME: avoid cp command when reading the config file from the 
     # outdir directory to avoid the 'same file' cp error
     os.system("cp {} {}/.".format(opts.config_file, outdir))
-    output_sampler = os.path.join(outdir, "raynest")
+    output_sampler = os.path.join(outdir, "nessai")
 
     if not(config_par['screen_output']):
         if not(config_par['postprocess']):
@@ -605,7 +618,10 @@ def main():
 
     print("\n"+formatting_string)
     print("\n"+"Running cosmoLISA")
-    print(f"raynest installation version: {raynest.__version__}")
+    # FIXME
+    # The code doesn't like the follwing line:
+    # NameError: name 'nessai' is not defined
+    # print(f"nessai installation version: {nessai.__version__}")
     print(f"cosmolisa likelihood version: {lk.__file__}")
     print("\n"+formatting_string)
 
@@ -809,7 +825,7 @@ def main():
                                          .ljust(4)))
 
     print(formatting_string+"\n")
-    print("raynest will be initialised with:")
+    print("nessai will be initialised with:")
     print(f"verbose:                 {config_par['verbose']}")
     print(f"nensemble:               {config_par['nensemble']}")
     print(f"nslice:                  {config_par['nslice']}")
@@ -842,26 +858,27 @@ def main():
     if (config_par['postprocess'] == 0):
         # Each NS can be located in different processors, but all 
         # the subprocesses of each NS live on the same processor.
-        work = raynest.raynest(
+        sampler = FlowSampler(
             C,
-            verbose=config_par['verbose'],
-            maxmcmc=config_par['maxmcmc'],
-            nensemble=config_par['nensemble'],
-            nslice=config_par['nslice'],
-            nhamiltonian=config_par['nhamiltonian'],
-            nnest=config_par['nnest'],   
+            # verbose=config_par['verbose'],
+            # maxmcmc=config_par['maxmcmc'],
+            # nensemble=config_par['nensemble'],
+            # nslice=config_par['nslice'],
+            # nhamiltonian=config_par['nhamiltonian'],
+            # nnest=config_par['nnest'],   
             nlive=config_par['nlive'],
             seed=config_par['seed'],
-            object_store_memory=config_par['obj_store_mem'],
+            # object_store_memory=config_par['obj_store_mem'],
             output=output_sampler,
-            periodic_checkpoint_interval=config_par['checkpoint_int'],
-            resume=config_par['resume'])
+            checkpoint_interval=config_par['checkpoint_int'],
+            # resume_file=config_par['resume']
+            )
 
-        work.run()
-        print(f"log Evidence = {work.logZ}")
+        sampler.run()
+        # print(f"log Evidence = {sampler.logZ}")
         print("\n"+formatting_string+"\n")
 
-        x = work.posterior_samples.ravel()
+        x = sampler.posterior_samples.ravel()
 
         # Save git info.
         with open("{}/git_info.txt".format(outdir), 'w+') as fileout:
@@ -883,7 +900,7 @@ def main():
     else:
         print(f"Reading the .h5 file... from {outdir}")
         import h5py
-        filename = os.path.join(outdir,"raynest","raynest.h5")
+        filename = os.path.join(outdir,"raynest","results.json")
         h5_file = h5py.File(filename,'r')
         x = h5_file['combined'].get('posterior_samples')
 
