@@ -245,7 +245,7 @@ class CosmologicalModel(Model):
         logP = np.log(self.in_bounds(x), dtype="float")
         for n in self.names:
             logP -= np.log(self.bounds[n][1] - self.bounds[n][0])
-        print(logP)
+
         if np.isfinite(logP).all():    
             # Check for the cosmological model and
             # define the CosmologicalParameter object.
@@ -316,7 +316,7 @@ class CosmologicalModel(Model):
                 self.Mstar_exponent = self.truths['Mstar_exponent']
                 self.alpha0 = self.truths['alpha0']
                 self.alpha_exponent = self.truths['alpha_exponent']
-        
+
         return logP
 
     def log_likelihood(self, x):
