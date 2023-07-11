@@ -246,38 +246,6 @@ class CosmologicalModel(Model):
         for n in self.names:
             logP -= np.log(self.bounds[n][1] - self.bounds[n][0])
 
-        if np.isfinite(logP).all():    
-            # Check for the cosmological model and
-            # define the CosmologicalParameter object.
-            cosmo_par = [self.truths['h'], self.truths['om'],
-                         self.truths['ol'], self.truths['w0'],
-                         self.truths['w1'], self.truths['Xi0'],
-                         self.truths['n1'], self.truths['b'],
-                         self.truths['n2']]
-            if ('h' in self.model):
-                cosmo_par[0] = x['h']
-            # TODO: check that sampling only om or
-            # om + the constraints 1-om is the same thing 
-            if ('om' in self.model):
-                cosmo_par[1:3] = x['om'], 1.0 - x['om']
-            if ('ol' in self.model):
-                cosmo_par[2] = x['ol']
-            if ('w0' in self.model):
-                cosmo_par[3] = x['w0']
-            if ('w1' in self.model):
-                cosmo_par[4] = x['w1']
-            if ('Xi0' in self.model):
-                cosmo_par[5] = x['Xi0']
-            if ('n1' in self.model):
-                cosmo_par[6] = x['n1']
-            if ('b' in self.model):
-                cosmo_par[7] = x['b']                
-            if ('n2' in self.model):
-                cosmo_par[8] = x['n2']                
-            else:
-                pass                
-            self.O = cs.CosmologicalParameters(*cosmo_par)
-
             # Check for the rate model or GW corrections.
             if ('Rate' in self.model):
                 if (self.SFRD == 'powerlaw'):
@@ -327,6 +295,35 @@ class CosmologicalModel(Model):
         logL_GW = np.zeros(x.size)
         logL_rate = np.zeros(x.size)
         logL_luminosity = np.zeros(x.size)
+
+        cosmo_par = [self.truths['h'], self.truths['om'],
+                        self.truths['ol'], self.truths['w0'],
+                        self.truths['w1'], self.truths['Xi0'],
+                        self.truths['n1'], self.truths['b'],
+                        self.truths['n2']]
+        if ('h' in self.model):
+            cosmo_par[0] = x['h']
+        # TODO: check that sampling only om or
+        # om + the constraints 1-om is the same thing 
+        if ('om' in self.model):
+            cosmo_par[1:3] = x['om'], 1.0 - x['om']
+        if ('ol' in self.model):
+            cosmo_par[2] = x['ol']
+        if ('w0' in self.model):
+            cosmo_par[3] = x['w0']
+        if ('w1' in self.model):
+            cosmo_par[4] = x['w1']
+        if ('Xi0' in self.model):
+            cosmo_par[5] = x['Xi0']
+        if ('n1' in self.model):
+            cosmo_par[6] = x['n1']
+        if ('b' in self.model):
+            cosmo_par[7] = x['b']                
+        if ('n2' in self.model):
+            cosmo_par[8] = x['n2']                
+        else:
+            pass                
+        self.O = cs.CosmologicalParameters(*cosmo_par)
 
         # If we are looking at the luminosity function only, go here.
         if ((self.luminosity == 1) and (self.gw == 0)):
@@ -454,14 +451,10 @@ class CosmologicalModel(Model):
                                 x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
                                 for j, e in enumerate(self.data)])
                     
-        # FIXME
-        # IF uncommented, the second time the code passed through
-        # the line below, it raises the following error:
-        # python(8572,0x1de1f5e00) malloc: *** error for object 0x6000033338c0: pointer being freed was not allocated
-        # python(8572,0x1de1f5e00) malloc: *** set a breakpoint in malloc_error_break to debug
-        # Abort trap: 6
-
-        # self.O.DestroyCosmologicalParameters()
+        # IMPROVEME
+        # Same results are obtained without destroying self.O.
+        # Is this line really necessary?
+        self.O.DestroyCosmologicalParameters()
 
         return logL_GW + logL_rate + logL_luminosity
 
