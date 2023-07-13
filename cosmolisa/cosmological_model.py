@@ -55,7 +55,6 @@ class CosmologicalModel(Model):
 
     def __init__(self, model, data, corrections, *args, **kwargs):
 
-        # super(CosmologicalModel, self).__init__()
         self.data = data
         self.N = len(self.data)
         self.event_class = kwargs['event_class']
@@ -79,43 +78,43 @@ class CosmologicalModel(Model):
         self.corr_const = kwargs['corr_const']
 
         self.names_list = []
-        self.bounds_list = dict()
+        self.bounds_dict = dict()
 
         if ('h' in self.model):
             self.names_list.append('h')
-            self.bounds_list['h'] = kwargs['prior_bounds']['h']
+            self.bounds_dict['h'] = kwargs['prior_bounds']['h']
 
         if ('om' in self.model):
             self.names_list.append('om')
-            self.bounds_list['om'] = kwargs['prior_bounds']['om']
+            self.bounds_dict['om'] = kwargs['prior_bounds']['om']
 
         if ('ol' in self.model):
             self.names_list.append('ol')
-            self.bounds_list['ol'] = kwargs['prior_bounds']['ol']
+            self.bounds_dict['ol'] = kwargs['prior_bounds']['ol']
 
         if ('w0' in self.model):
             self.names_list.append('w0')
-            self.bounds_list['w0'] = kwargs['prior_bounds']['w0']
+            self.bounds_dict['w0'] = kwargs['prior_bounds']['w0']
 
         if ('w1' in self.model):
             self.names_list.append('w1')
-            self.bounds_list['w1'] = kwargs['prior_bounds']['w1']
+            self.bounds_dict['w1'] = kwargs['prior_bounds']['w1']
 
         if ('Xi0' in self.model):
             self.names_list.append('Xi0')
-            self.bounds_list['Xi0'] = kwargs['prior_bounds']['Xi0']
+            self.bounds_dict['Xi0'] = kwargs['prior_bounds']['Xi0']
 
         if ('n1' in self.model):
             self.names_list.append('n1')
-            self.bounds_list['n1'] = kwargs['prior_bounds']['n1']
+            self.bounds_dict['n1'] = kwargs['prior_bounds']['n1']
 
         if ('b' in self.model):
             self.names_list.append('b')
-            self.bounds_list['b'] = kwargs['prior_bounds']['b']
+            self.bounds_dict['b'] = kwargs['prior_bounds']['b']
 
         if ('n2' in self.model):
             self.names_list.append('n2')
-            self.bounds_list['n2'] = kwargs['prior_bounds']['n2']
+            self.bounds_dict['n2'] = kwargs['prior_bounds']['n2']
         # Some consistency checks.
         for par in self.names_list:
             assert kwargs['prior_bounds'][par][0] <= self.truths[par], (
@@ -129,7 +128,7 @@ class CosmologicalModel(Model):
                 exit() 
 
         self.names = self.names_list
-        self.bounds = self.bounds_list
+        self.bounds = self.bounds_dict
 
         if ('GW' in self.model):
             self.gw = 1
@@ -217,8 +216,8 @@ class CosmologicalModel(Model):
         print(f"Free parameters: {self.names}")
         print("\n"+5*"===================="+"\n")
         print("Prior bounds:")
-        for name, bound in zip(self.names, self.bounds):
-            print(f"{str(name).ljust(17)}: {bound}")
+        for name in self.names:
+            print(f"{str(name).ljust(17)}: {self.bounds[name]}")
         print("\n"+5*"===================="+"\n")
 
     def _initialise_galaxy_hosts(self):
@@ -235,17 +234,15 @@ class CosmologicalModel(Model):
             }
         
     def log_prior(self, x):
-        """Natural-log-prior assumed in the inference. 
-        It is currently inherited from the sampler class
-        (uniform priors for all the parameters thst are defined
-        in the list 'names' with ranges specified in 'bounds').
-        It also defines objects used in other class modules.
         """
-        # logP = super(CosmologicalModel, self).log_prior(x)
+        Returns natural-log of prior given a live point assuming
+        uniform priors on each parameter.        
+        """
         logP = np.log(self.in_bounds(x), dtype="float")
         for n in self.names:
             logP -= np.log(self.bounds[n][1] - self.bounds[n][0])
 
+            # FIXME: this block probably must go into log_likelihood.
             # Check for the rate model or GW corrections.
             if ('Rate' in self.model):
                 if (self.SFRD == 'powerlaw'):
@@ -297,14 +294,12 @@ class CosmologicalModel(Model):
         logL_luminosity = np.zeros(x.size)
 
         cosmo_par = [self.truths['h'], self.truths['om'],
-                        self.truths['ol'], self.truths['w0'],
-                        self.truths['w1'], self.truths['Xi0'],
-                        self.truths['n1'], self.truths['b'],
-                        self.truths['n2']]
+                     self.truths['ol'], self.truths['w0'],
+                     self.truths['w1'], self.truths['Xi0'],
+                     self.truths['n1'], self.truths['b'],
+                     self.truths['n2']]
         if ('h' in self.model):
             cosmo_par[0] = x['h']
-        # TODO: check that sampling only om or
-        # om + the constraints 1-om is the same thing 
         if ('om' in self.model):
             cosmo_par[1:3] = x['om'], 1.0 - x['om']
         if ('ol' in self.model):
@@ -500,17 +495,9 @@ usage="""\n\n %prog --config-file config.ini\n
     'postprocess'          Default: 0.                                       Run only the postprocessing. It works only with reduced_catalog=0.
     'screen_output'        Default: 0.                                       Print the output on screen or save it into a file.
 
-    'verbose'              Default: 2.                                       Sampler verbose.
-    'maxmcmc'              Default: 5000.                                    Maximum MCMC steps for MHS sampling chains.
-    'nensemble'            Default: 1.                                       Number of sampler threads using an ensemble sampler. Equal to the number of LP evolved at each NS step. It must be a positive multiple of nnest.
-    'nslice'               Default: 0.                                       Number of sampler threads using a slice sampler.
-    'nhamiltonian'         Default: 0.                                       Number of sampler threads using a hamiltonian sampler.
-    'nnest'                Default: 1.                                       Number of parallel independent nested samplers.
     'nlive'                Default: 1000.                                    Number of live points.
     'seed'                 Default: 0.                                       Random seed initialisation.
-    'obj_store_mem'        Default: 2e9.                                     Amount of memory reserved for ray object store. Default: 2GB.
     'checkpoint_int'       Default: 21600.                                   Time interval between sampler periodic checkpoint in seconds. Defaut: 21600 (6h).
-    'resume'               Default: 0.                                       If set to 1, resume a run reading the checkpoint files, otherwise run from scratch. Default: 0.
 
 """
 
@@ -563,17 +550,9 @@ def main():
         'trapezoid': 1,
         'postprocess': 0,
         'screen_output': 0,    
-        'verbose': 2,
-        'maxmcmc': 5000,
-        'nensemble': 1,
-        'nslice': 0,
-        'nhamiltonian': 0,
-        'nnest': 1,
         'nlive': 1000,
         'seed': 1234,
-        'obj_store_mem': 2e9,
         'checkpoint_int': 10800,
-        'resume': 0
         }
 
     for key in config_par:
@@ -819,16 +798,8 @@ def main():
 
     print(formatting_string+"\n")
     print("nessai will be initialised with:")
-    print(f"verbose:                 {config_par['verbose']}")
-    print(f"nensemble:               {config_par['nensemble']}")
-    print(f"nslice:                  {config_par['nslice']}")
-    print(f"nhamiltonian:            {config_par['nhamiltonian']}")
-    print(f"nnest:                   {config_par['nnest']}")
     print(f"nlive:                   {config_par['nlive']}")
-    print(f"maxmcmc:                 {config_par['maxmcmc']}")
-    print(f"object_store_memory:     {config_par['obj_store_mem']}")
     print(f"periodic_checkpoint_int: {config_par['checkpoint_int']}")
-    print(f"resume:                  {config_par['resume']}")
 
     C = CosmologicalModel(
         model=config_par['model'],
@@ -845,26 +816,17 @@ def main():
         SFRD=config_par['SFRD'],
         corr_const=corr_const)
 
+    # FIXME: add all the settings options of nessai.
     # IMPROVEME: postprocess doesn't work when events are 
     # randomly selected, since 'events' in C are different 
     # from the ones read from chain.txt.
     if (config_par['postprocess'] == 0):
-        # Each NS can be located in different processors, but all 
-        # the subprocesses of each NS live on the same processor.
         sampler = FlowSampler(
             C,
-            # verbose=config_par['verbose'],
-            # maxmcmc=config_par['maxmcmc'],
-            # nensemble=config_par['nensemble'],
-            # nslice=config_par['nslice'],
-            # nhamiltonian=config_par['nhamiltonian'],
-            # nnest=config_par['nnest'],   
             nlive=config_par['nlive'],
             seed=config_par['seed'],
-            # object_store_memory=config_par['obj_store_mem'],
             output=output_sampler,
             checkpoint_interval=config_par['checkpoint_int'],
-            # resume_file=config_par['resume']
             )
 
         sampler.run()
