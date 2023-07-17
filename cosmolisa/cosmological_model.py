@@ -497,6 +497,8 @@ usage="""\n\n %prog --config-file config.ini\n
 
     'nlive'                Default: 1000.                                    Number of live points.
     'seed'                 Default: 0.                                       Random seed initialisation.
+    'pytorch_threads'      Default: 1.                                       Number of threads that pytorch can use.
+    'n_pool'               Default: None.                                    Threads for evaluating the likelihood.
     'checkpoint_int'       Default: 21600.                                   Time interval between sampler periodic checkpoint in seconds. Defaut: 21600 (6h).
 
 """
@@ -552,6 +554,8 @@ def main():
         'screen_output': 0,    
         'nlive': 1000,
         'seed': 1234,
+        'pytorch_threads': 1,
+        'n_pool': 1,
         'checkpoint_int': 10800,
         }
 
@@ -799,6 +803,8 @@ def main():
     print(formatting_string+"\n")
     print("nessai will be initialised with:")
     print(f"nlive:                   {config_par['nlive']}")
+    print(f"pytorch_threads:         {config_par['pytorch_threads']}")
+    print(f"n_pool:                  {config_par['n_pool']}")
     print(f"periodic_checkpoint_int: {config_par['checkpoint_int']}")
 
     C = CosmologicalModel(
@@ -824,6 +830,8 @@ def main():
         sampler = FlowSampler(
             C,
             nlive=config_par['nlive'],
+            pytorch_threads=config_par['pytorch_threads'],
+            n_pool=config_par['n_pool'],
             seed=config_par['seed'],
             output=output_sampler,
             checkpoint_interval=config_par['checkpoint_int'],
