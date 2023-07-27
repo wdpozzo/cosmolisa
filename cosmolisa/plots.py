@@ -23,7 +23,7 @@ labels_plot = {
     'Modified_H0_Om0_Xi0_GW': [r'$h$', r'$\Omega_m$', r'$\Xi_0$'],
     'Modified_H0_Xi0_GW': [r'$h$', r'$\Xi_0$'],
     'Modified_Xi0_n_GW': [r'$\Xi_0$', r'$n$'],
-    'Modified_Xi0_GW': [r'\Xi_0'],
+    'Modified_Xi0_GW': [r'$\Xi_0$'],
 
     'Modified_H0_Om0_b_nb_GW': [r'$h$', r'$\Omega_m$', r'$b$', r'$n$'],
     'Modified_H0_Om0_b_GW': [r'$h$', r'$\Omega_m$', r'$b$'],
@@ -154,7 +154,7 @@ def corner_plot(x, **kwargs):
                       name="corner_plot_68CI")
         corner_config(model=model_name,
                       samps_tuple=samps_tuple,
-                      quantiles_plot=[0.16, 0.5, 0.84],
+                      quantiles_plot=[0.05, 0.5, 0.95],
                       truths=truths,
                       outdir=kwargs['outdir'],
                       name="corner_plot_90CI")

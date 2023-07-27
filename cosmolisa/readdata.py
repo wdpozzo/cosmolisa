@@ -285,26 +285,16 @@ def read_dark_siren_event(input_folder, event_number,
             sys.stderr.write("Reading {0} out of {1} events\r".format(
                 k+1, len(events_list)))
             try:
-                event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
-                # 1      , 2 , 3        , 4 , 5              ,
-                (event_id, dl, rel_sigmadl, Vc, z_observed_true,
+               (event_id, dl, rel_sigmadl, Vc, z_observed_true,
                     # 6      , 7        , 8     ,
                     zmin_true, zmax_true, z_true,
                     # 9 , 10  ,  , , , , , ,
                     zmin, zmax, _,_,_,_,_,_,
                     # 17, 18
-                    snr, snr_true) = event_file.readline().split(None)
+                    snr, snr_true) = np.loadtxt(input_folder+"/"+ev+"/ID.dat", comments='#')
             except(ValueError):
-                event_file = open(input_folder+"/"+ev+"/ID.dat", 'r')
-                # 1      , 2 , 3        , 4 , 5              ,
-                (event_id, dl, rel_sigmadl, Vc, z_observed_true,
-                    # 6      , 7        , 8     ,
-                    zmin_true, zmax_true, z_true,
-                    # 9 , 10  ,  , , , , , ,
-                    zmin, zmax, _,_,_,_,_,_,
-                    # 17, 18
-                    snr, snr_true) = str(event_file.readlines()[1:])[2:-4].split(None)
-
+                print("Wrong")
+                
             ID = np.int(event_id)
             dl = np.float64(dl)
             sigmadl = np.float64(rel_sigmadl)*dl
@@ -314,7 +304,6 @@ def read_dark_siren_event(input_folder, event_number,
             VC = np.float64(Vc)
             z_cosmo_true_host = np.float64(z_observed_true)
             z_true = np.float64(z_true)
-            event_file.close()
             try:
                 try:
                     # 1     , 2      , 3  , 4   , 5      , 6    , 7         ,
