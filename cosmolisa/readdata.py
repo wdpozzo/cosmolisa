@@ -1,6 +1,8 @@
 import numpy as np
 import sys
 import os
+from scipy.stats import norm
+from scipy import interpolate
 
 class Galaxy:
     """Galaxy class:
@@ -275,7 +277,7 @@ def read_dark_siren_event(input_folder, event_number,
     all_files = os.listdir(input_folder)
     print(f"\nReading {input_folder}")
     events_list = [f for f in all_files if "EVENT" in f]
-    pv = sigma_pv
+    pv = sigma_pv # This is v_p/c
 
     if (event_number is None):
         events = []
@@ -519,6 +521,17 @@ def read_dark_siren_event(input_folder, event_number,
                       f"{str(e.potential_galaxy_hosts[0].redshift).ljust(7)}"
                       " |  hosts:" 
                       f"{str(len(e.potential_galaxy_hosts)).ljust(4)}")
+
+        print("\nPre-computing the redshift priors...")
+        for e in events:
+            pg_tot = []
+            zg = np.linspace(e.zmin, e.zmax, 1000)
+            for g in e.potential_galaxy_hosts:
+                pg_tot.append(norm.pdf(zg, g.redshift, 
+                              g.dredshift*(1+g.redshift)) * g.weight)    
+            z_interp = interpolate.interp1d(zg, sum(pg_tot))
+            e.zprior = z_interp
+        print("Done.")
 
         analysis_events = events
         del events_list

@@ -44,6 +44,7 @@ cdef class CosmologicalParameters:
         return XLALIntegrateComovingVolumeDensity(
                 self._LALCosmologicalParameters, zmax)
 
+    # Returns the integral of ComVolElement (dV/dz)
     cdef double _IntegrateComovingVolume(self, double zmax) nogil:
         return XLALIntegrateComovingVolume(self._LALCosmologicalParameters,
                                            zmax)
@@ -53,11 +54,13 @@ cdef class CosmologicalParameters:
         return XLALUniformComovingVolumeDensity(
                 z, self._LALCosmologicalParameters)
 
+    # Returns UnifComVolDens / IntegrateComVolDens
     cdef double _UniformComovingVolumeDistribution(self, double z,
                                                    double zmax) nogil:
         return XLALUniformComovingVolumeDistribution(
                 self._LALCosmologicalParameters, z, zmax)
 
+    # Returns dV/dz
     cdef double _ComovingVolumeElement(self, double z) nogil:
         return XLALComovingVolumeElement(z, self._LALCosmologicalParameters)
 

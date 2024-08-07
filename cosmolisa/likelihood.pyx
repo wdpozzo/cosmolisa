@@ -6,7 +6,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 from libc.math cimport log, exp, sqrt, cos, fabs, sin, sinh, M_PI, \
-    erf, erfc, HUGE_VAL, log1p, M_SQRT1_2, M_2_SQRTPI
+    erf, erfc, HUGE_VAL, log1p, M_SQRT1_2, M_2_SQRTPI, M_SQRT2
 from scipy.optimize import newton
 
 from cosmolisa.cosmology cimport CosmologicalParameters
@@ -46,6 +46,10 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
     cdef int i
     cdef int N = 100
     cdef double dz = (zmax-zmin)/N
+    # cdef unsigned int Ngal = hosts.shape[0]
+    # cdef double dL_h = 2860
+    # cdef double alpha = 0.0
+    # cdef double dLRelErr = sigmadl/meandl
     cdef double z  = zmin + dz
     cdef double I = (0.5
         * (_lk_dark_single_event_integrand_trap(zmin, hosts, meandl,
@@ -57,6 +61,14 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
                                                   sigmadl, omega, model)
         z += dz
     return I*dz
+
+    # Compute correction from Gair+22
+    #for j in range(Ngal):
+    #    erf_num = omega._LuminosityDistance(hosts[j,0]) - dL_h
+    #    erf_den = M_SQRT2 * dLRelErr * omega._LuminosityDistance(hosts[j,0])
+    #    Pdet = 0.5*(1.0 + erf(erf_num/erf_den))
+    #    alpha += Pdet    
+    #return I*dz/alpha
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -91,6 +103,7 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
     L_detector = (SigmaNorm * exp(-0.5*(dl-meandl)*(dl-meandl)
                   / SigmaSquared))
 
+    # dVdz = omega._ComovingVolumeElement(event_redshift)    
     # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
     for j in range(N):
         # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
@@ -98,6 +111,7 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
         # Compute the full single-galaxy term to be summed over Ng.
         score_z = (event_redshift - hosts[j,0])/sigma_z
         L_gal = (OneSqrtTwoPi * (1/sigma_z) * hosts[j,2]
+    #            * dVdz
                  * exp(-0.5*score_z*score_z))
         L_galaxy += L_gal
     
