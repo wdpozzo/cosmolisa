@@ -24,11 +24,12 @@ cdef inline double log_add(double x, double y) nogil:
 def lk_dark_single_event_trap(const double[:,::1] hosts,
                             const double meandl,
                             const double sigmadl,
+                            object zp,
                             CosmologicalParameters omega,
                             str model,
                             const double zmin,
                             const double zmax):
-    return _lk_dark_single_event_trap(hosts, meandl, sigmadl, omega,
+    return _lk_dark_single_event_trap(hosts, meandl, sigmadl, zp, omega,
                                       model, zmin, zmax)
 
 @cython.boundscheck(False)
@@ -38,6 +39,7 @@ def lk_dark_single_event_trap(const double[:,::1] hosts,
 cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
                             const double meandl,
                             const double sigmadl,
+                            object zp,
                             CosmologicalParameters omega,
                             str model,
                             const double zmin,
@@ -53,12 +55,12 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
     cdef double z  = zmin + dz
     cdef double I = (0.5
         * (_lk_dark_single_event_integrand_trap(zmin, hosts, meandl,
-                                                sigmadl, omega, model)
+                                                sigmadl, zp, omega, model)
         + _lk_dark_single_event_integrand_trap(zmax, hosts, meandl,
-                                               sigmadl, omega, model)))
+                                               sigmadl, zp, omega, model)))
     for i in range(1, N):
         I += _lk_dark_single_event_integrand_trap(z, hosts, meandl,
-                                                  sigmadl, omega, model)
+                                                  sigmadl, zp, omega, model)
         z += dz
     return I*dz
 
@@ -78,8 +80,9 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
                                         const double[:,::1] hosts,
                                         const double meandl,
                                         const double sigmadl,
+                                        object zp,
                                         CosmologicalParameters omega,
-                                        str model) nogil:
+                                        str model):
 
     cdef unsigned int j
     cdef double dl
@@ -102,21 +105,9 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
     # 1/sqrt{2pi*SigmaSquared}*exp(-0.5*(dL-d(O, z_GW))^2/SigmaSquared)
     L_detector = (SigmaNorm * exp(-0.5*(dl-meandl)*(dl-meandl)
                   / SigmaSquared))
-
-    # dVdz = omega._ComovingVolumeElement(event_redshift)    
-    # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
-    for j in range(N):
-        # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
-        sigma_z = hosts[j,1] * (1 + hosts[j,0])
-        # Compute the full single-galaxy term to be summed over Ng.
-        score_z = (event_redshift - hosts[j,0])/sigma_z
-        L_gal = (OneSqrtTwoPi * (1/sigma_z) * hosts[j,2]
-    #            * dVdz
-                 * exp(-0.5*score_z*score_z))
-        L_galaxy += L_gal
     
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
-    return L_detector * L_galaxy
+    return L_detector * zp(event_redshift)
 
 def lk_bright_single_event_trap(const double[:,::1] hosts,
                             const double meandl,
