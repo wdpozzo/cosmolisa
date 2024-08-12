@@ -842,6 +842,24 @@ def main():
     # randomly selected, since 'events' in C are different 
     # from the ones read from chain.txt.
     if (config_par['postprocess'] == 0):
+        # Save git info.
+        with open("{}/git_info.txt".format(outdir), 'w+') as fileout:
+            subprocess.call(['git', 'diff'], stdout=fileout)
+        # Save content of installed files.
+        files_to_save = []
+        files_path = lk.__file__.replace(lk.__file__.split("/")[-1], "")
+        for te in os.listdir(files_path):
+            if not ".so" in te and not "__" in te:
+                files_to_save.append(te)
+        files_to_save.sort()
+        output_file = open(os.path.join(outdir, "installed_files.txt"), 'w')
+        for fi in files_to_save:
+            f = open(f"{files_path}/{fi}", 'r')
+            output_file.write("____________________\n")
+            output_file.write(f"{fi}\n____________________\n")
+            output_file.write(f.read())
+            output_file.write("\n\n\n\n\n\n\n\n\n\n")
+            
         # Each NS can be located in different processors, but all 
         # the subprocesses of each NS live on the same processor.
         work = raynest.raynest(
@@ -865,23 +883,6 @@ def main():
 
         x = work.posterior_samples.ravel()
 
-        # Save git info.
-        with open("{}/git_info.txt".format(outdir), 'w+') as fileout:
-            subprocess.call(['git', 'diff'], stdout=fileout)
-        # Save content of installed files.
-        files_to_save = []
-        files_path = lk.__file__.replace(lk.__file__.split("/")[-1], "")
-        for te in os.listdir(files_path):
-            if not ".so" in te and not "__" in te:
-                files_to_save.append(te)
-        files_to_save.sort()
-        output_file = open(os.path.join(outdir, "installed_files.txt"), 'w')
-        for fi in files_to_save:
-            f = open(f"{files_path}/{fi}", 'r')
-            output_file.write("____________________\n")
-            output_file.write(f"{fi}\n____________________\n")
-            output_file.write(f.read())
-            output_file.write("\n\n\n\n\n\n\n\n\n\n")
     else:
         print(f"Reading the .h5 file... from {outdir}")
         import h5py
