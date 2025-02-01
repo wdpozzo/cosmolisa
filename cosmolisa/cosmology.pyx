@@ -19,6 +19,9 @@ cdef class CosmologicalParameters:
     cdef double _HubbleParameter(self, double z) nogil:
         return XLALHubbleParameter(z, self._LALCosmologicalParameters)
 
+    cdef double _IntegrateHubbleParameter(self, double z) nogil:
+        return XLALIntegrateHubbleParameter(self._LALCosmologicalParameters, z)
+
     cdef double _LuminosityDistance(self, double z) nogil:
         return XLALLuminosityDistance(self._LALCosmologicalParameters, z)
 
@@ -73,6 +76,9 @@ cdef class CosmologicalParameters:
 
     def HubbleParameter(self, double z):
         return self._HubbleParameter(z)
+
+    def IntegrateHubbleParameter(self, double z):
+        return self._IntegrateHubbleParameter(z)    
 
     def LuminosityDistance(self, double z):
         return self._LuminosityDistance(z)

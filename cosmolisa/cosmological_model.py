@@ -15,7 +15,6 @@ from cosmolisa import readdata
 from cosmolisa import plots
 from cosmolisa import cosmology as cs
 from cosmolisa import likelihood as lk
-from cosmolisa import galaxy as gal
 from cosmolisa import astrophysics as astro
 # import nessai
 from nessai.model import Model
@@ -65,15 +64,10 @@ class CosmologicalModel(Model):
         self.z_threshold = kwargs['z_threshold']
         self.snr_threshold = kwargs['snr_threshold']
         self.T = kwargs['T']
-        self.magnitude_threshold = kwargs['m_threshold']
-        self.trapezoid = kwargs['trapezoid']
-        self.Mmin = -25.0
-        self.Mmax = -15.0
         self.O = None
 
         self.gw = 0
         self.rate = 0
-        self.luminosity = 0
         self.SFRD = None
         self.corr_const = kwargs['corr_const']
 
@@ -162,23 +156,8 @@ class CosmologicalModel(Model):
             elif (self.SFRD == 'powerlaw'):
                 # psi(z) = r0*(1+z)**p1.
                 self.names.append('p1')
-                self.bounds.append([-15.0, 15.0])
+                self.bounds.append([-5.0, 5.0])
 
-        if ('Luminosity' in self.model):
-            self.luminosity = 1
-            self.em_correction = 1
-            self.names.append('phistar0')
-            self.bounds.append([1e-5, 1e-1])
-            self.names.append('phistar_exponent')
-            self.bounds.append([-0.1, 0.1])
-            self.names.append('Mstar0')
-            self.bounds.append([-22, -18])
-            self.names.append('Mstar_exponent')
-            self.bounds.append([-0.1, 0.1])
-            self.names.append('alpha0')
-            self.bounds.append([-2.0, -1.0])
-            self.names.append('alpha_exponent')
-            self.bounds.append([-0.1, 0.1])
 
         assert len(self.names) != 0, ("Undefined parameter space!"
         "Please check that the model exists.")
@@ -199,11 +178,6 @@ class CosmologicalModel(Model):
                 self.SFRD = None
                 self.gw_correction = 0
         
-        if not('Luminosity' in self.model):
-            if ('EM' in corrections):
-                self.em_correction = 1
-            else:
-                self.em_correction = 0
 
         print("\n"+5*"===================="+"\n")
         print("CosmologicalModel model initialised with:")
@@ -211,7 +185,6 @@ class CosmologicalModel(Model):
         print(f"Analysis model: {self.model}")
         print(f"Star Formation Rate Density model: {self.SFRD}")
         print(f"Number of events: {len(self.data)}")
-        print(f"EM correction: {self.em_correction}")
         print(f"GW correction: {self.gw_correction}")
         print(f"Free parameters: {self.names}")
         print("\n"+5*"===================="+"\n")
@@ -266,21 +239,6 @@ class CosmologicalModel(Model):
                     self.truths['p3'], 0.0, self.O, 1e-5, self.z_threshold,
                     density_model=self.SFRD)
 
-            # Check for the luminosity model or EM corrections.
-            if ('Luminosity' in self.model):
-                self.phistar0 = x['phistar0']
-                self.phistar_exponent = x['phistar_exponent']
-                self.Mstar0 = x['Mstar0']
-                self.Mstar_exponent = x['Mstar_exponent']
-                self.alpha0 = x['alpha0']
-                self.alpha_exponent = x['alpha_exponent']
-            elif (self.em_correction == 1):
-                self.phistar0 = self.truths['phistar0']
-                self.phistar_exponent = self.truths['phistar_exponent']
-                self.Mstar0 = self.truths['Mstar0']
-                self.Mstar_exponent = self.truths['Mstar_exponent']
-                self.alpha0 = self.truths['alpha0']
-                self.alpha_exponent = self.truths['alpha_exponent']
 
         return logP
 
@@ -291,7 +249,6 @@ class CosmologicalModel(Model):
         """
         logL_GW = np.zeros(x.size)
         logL_rate = np.zeros(x.size)
-        logL_luminosity = np.zeros(x.size)
 
         cosmo_par = [self.truths['h'], self.truths['om'],
                      self.truths['ol'], self.truths['w0'],
@@ -320,36 +277,6 @@ class CosmologicalModel(Model):
             pass                
         self.O = cs.CosmologicalParameters(*cosmo_par)
 
-        # If we are looking at the luminosity function only, go here.
-        if ((self.luminosity == 1) and (self.gw == 0)):
-            for e in self.data:
-                Schecter = gal.GalaxyDistribution(self.O,
-                                                  self.phistar0,
-                                                  self.phistar_exponent,
-                                                  self.Mstar0,
-                                                  self.Mstar_exponent,
-                                                  self.alpha0,
-                                                  self.alpha_exponent,
-                                                  self.Mmin,
-                                                  self.Mmax,
-                                                  e.zmin,
-                                                  e.zmax,
-                                                  0.0,
-                                                  2.0*np.pi,
-                                                  -0.5*np.pi,
-                                                  0.5*np.pi,
-                                                  self.magnitude_threshold,
-                                                  self.areas[e.ID],
-                                                  0,
-                                                  0,
-                                                  0)
-
-                logL_luminosity += (Schecter.loglikelihood(
-                                    self.hosts[e.ID][:,3].copy(order='C'),
-                                    self.hosts[e.ID][:,0].copy(order='C')))
-
-            return logL_luminosity
-        
         # If we are estimating the rate or we are correcting for 
         # GW selection effects, we need this part.
         if (self.rate == 1) or (self.gw_correction == 1):
@@ -376,84 +303,38 @@ class CosmologicalModel(Model):
                                  e.z_true, self.population_model, Ns_tot) 
                                  for e in self.data]))
 
-        # If we are correcting for EM selection effects, 
-        # we need this part.
-        if (self.em_correction == 1):
-            for j, e in enumerate(self.data):
-                    Sch = gal.GalaxyDistribution(self.O,
-                                                 self.phistar0,
-                                                 self.phistar_exponent,
-                                                 self.Mstar0,
-                                                 self.Mstar_exponent,
-                                                 self.alpha0,
-                                                 self.alpha_exponent,
-                                                 self.Mmin,
-                                                 self.Mmax,
-                                                 e.zmin,
-                                                 e.zmax,
-                                                 0.0,
-                                                 2.0*np.pi,
-                                                 -0.5*np.pi,
-                                                 0.5*np.pi,
-                                                 self.magnitude_threshold,
-                                                 self.areas[e.ID],
-                                                 0,
-                                                 0,
-                                                 0)
-                    
-                    logL_GW += lk.logLikelihood_single_event_sel_fun(
-                                    self.hosts[e.ID], e.dl, e.sigmadl,
-                                    self.O, Sch, x['z%d'%e.ID],
-                                    zmin=e.zmin, zmax=e.zmax)
-                    if (self.luminosity == 1):
-                        logL_luminosity += Sch.loglikelihood(
-                                    self.hosts[e.ID][:,3].copy(order='C'),
-                                    self.hosts[e.ID][:,0].copy(order='C'))
-
-        # We assume the catalog is complete and no correction
-        # is necessary.
+            logL_GW += np.sum([np.log(lk.lk_dark_single_event(
+                    self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                    x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax))
+                    + np.log(self.population_model.pdf(x['z%d'%e.ID])
+                    / self.T) for j, e in enumerate(self.data)])
         else:
-            # Multiply GW likelihood by 1/(Ns_tot) dR/dz.
-            # Only compatible with dark sirens.
-            if (self.rate == 1) or (self.gw_correction == 1):
-                logL_GW += np.sum([np.log(lk.lk_dark_single_event(
+            if (self.event_class == 'dark_siren'):
+                dl_thr = 3000.0
+                frac_dl = 0.02
+                logL_GW += np.sum([np.log(
+                        lk.lk_dark_single_event_trap(
                         self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                        x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax))
-                        + np.log(self.population_model.pdf(x['z%d'%e.ID])
-                        / self.T) for j, e in enumerate(self.data)])
-            else:
-                if (self.trapezoid == 1): 
-                    if (self.event_class == 'dark_siren'):
-                        logL_GW += np.sum([np.log(
-                                lk.lk_dark_single_event_trap(
-                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                                self.model_str, zmin=e.zmin, zmax=e.zmax))
-                                for j, e in enumerate(self.data)])
-                    elif (self.event_class == 'MBHB'):
-                        logL_GW += np.sum([np.log(
-                                lk.lk_bright_single_event_trap(
-                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                                self.model_str, zmin=e.zmin, zmax=e.zmax))
-                                for j, e in enumerate(self.data)])
-                else:
-                    #FIXME: fix Gauss-Kronrod (not used for now).
-                    if (self.event_class == 'dark_siren'):
-                        logL_GW += np.sum([np.log(lk.lk_dark_single_event(
-                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                                zmin=e.zmin, zmax=e.zmax))
-                                for j, e in enumerate(self.data)])
-                    elif (self.event_class == 'MBHB'):
-                        logL_GW += np.sum([lk.loglk_bright_single_event(
-                                self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                                x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax)
-                                for j, e in enumerate(self.data)])
+                        self.model_str, zmin=e.zmin, zmax=e.zmax))
+                        ###########################
+                        # - np.log(lk.beta(self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                        # self.model_str, zmin=e.zmin, zmax=e.zmax, 
+                        # dl_thr=dl_thr, frac_dl=frac_dl))
+                        ###########################
+                        for j, e in enumerate(self.data)])
+            elif (self.event_class == 'MBHB'):
+                logL_GW += np.sum([np.log(
+                        lk.lk_bright_single_event_trap(
+                        self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                        self.model_str, zmin=e.zmin, zmax=e.zmax))
+                        for j, e in enumerate(self.data)])
                     
         # IMPROVEME
         # Same results are obtained without destroying self.O.
         # Is this line really necessary?
         self.O.DestroyCosmologicalParameters()
 
-        return logL_GW + logL_rate + logL_luminosity
+        return logL_GW + logL_rate
 
 
 usage="""\n\n %prog --config-file config.ini\n
@@ -469,14 +350,13 @@ usage="""\n\n %prog --config-file config.ini\n
     'data'                 Default: ''.                                      Data location.
     'outdir'               Default: './default_dir'.                         Directory for output.
     'event_class'          Default: ''.                                      Class of the event(s) ['dark_siren', 'MBHB'].
-    'model'                Default: ''.                                      Specify the cosmological parameters to sample over ['h', 'om', 'ol', 'w0', 'wa', 'Xi0', 'n1', 'b', 'n2'] and the type of analysis ['GW', 'Rate', 'Luminosity'] separated by a '+'.
+    'model'                Default: ''.                                      Specify the cosmological parameters to sample over ['h', 'om', 'ol', 'w0', 'wa', 'Xi0', 'n1', 'b', 'n2'] and the type of analysis ['GW', 'Rate'] separated by a '+'.
     'truths'               Default: {"h": 0.673, "om": 0.315, "ol": 0.685}.  Cosmology truths values. If not specified, default values are used.
     'prior_bounds'         Default: {"h": [0.6, 0.86], "om": [0.04, 0.5]}.   Prior bounds specified by the user. Must contain all the parameters specified in 'model'.
     'corrections'          Default: ''.                                      Family of corrections ('GW', 'EM') separated by a '+'.
     'random'               Default: 0.                                       Run a joint analysis with N events, randomly selected.
     'zhorizon'             Default: '1000.0'.                                Impose low-high cutoffs in redshift. It can be a single number (upper limit) or a string with z_min and z_max separated by a comma.
     'SFRD'                 Default: ''.                                      Star Formation Rate Density model assumed for the event rate ['madau-porciani, madau-fragos, powerlaw'].
-    'dl_cutoff'            Default: 0.0.                                     If > 0, select events with dL(omega_true,zmax) < dl_cutoff (in Mpc). This cutoff supersedes the zhorizon one.
     'z_event_sel'          Default: 0.                                       Select N events ordered by redshift. If positive (negative), choose the X nearest (farthest) events.
     'one_host_sel'         Default: 0.                                       For each event, associate only the nearest-in-redshift host (between z_gal and event z_true).
     'single_z_from_GW'     Default: 0.                                       Impose a single host for each GW having redshift equal to z_true. It works only if one_host_sel = 1.
@@ -493,7 +373,6 @@ usage="""\n\n %prog --config-file config.ini\n
     'reduced_catalog'      Default: 0.                                       Select randomly only a fraction of the catalog (4 yrs of observation, hardcoded).
     'm_threshold'          Default: 20.                                      Apparent magnitude threshold.
     'em_selection'         Default: 0.                                       Use an EM selection function in dark_siren plots.
-    'trapezoid'            Default: 1.                                       Integrate in redshift using the trapezoidal rule or the Gauss-Kronrod method (slower).
     'postprocess'          Default: 0.                                       Run only the postprocessing. It works only with reduced_catalog=0.
     'screen_output'        Default: 0.                                       Print the output on screen or save it into a file.
 
@@ -534,12 +413,15 @@ def main():
         'random': 0,
         'zhorizon': "1000.0",
         'SFRD': '',
-        'dl_cutoff': 0.0,
+        'rel_LISAsigmadl': 0.0,
         'z_event_sel': 0,
         'one_host_sel': 0,
         'single_z_from_GW': 0,
         'equal_wj': 0,
+        'gals_dVdz': 0,
+        'gals_uniform': 0,
         'event_ID_list': '',
+        'snr_range': '',
         'max_hosts': 0,
         'z_gal_cosmo': 0,
         'snr_selection': 0,
@@ -551,7 +433,6 @@ def main():
         'reduced_catalog': 0,
         'm_threshold': 20,
         'em_selection': 0,
-        'trapezoid': 1,
         'postprocess': 0,
         'screen_output': 0,    
         'nlive': 1000,
@@ -623,12 +504,6 @@ def main():
         'p2': 2.4,
         'p3': 5.2,
         'p4': 0.0,
-        'phistar0': 1e-2,
-        'Mstar0': -20.7,
-        'alpha0': -1.23,
-        'phistar_exponent': 0.0,
-        'Mstar_exponent': 0.0,
-        'alpha_exponent': 0.0
         }
 
     for par in truths.keys():
@@ -663,76 +538,27 @@ def main():
     ### Reading the catalog according to the user's options.
     ###################################################################
 
+    # Choose between dark or bright siren analysis
     if (config_par['event_class'] == "dark_siren"):
-        if (config_par['snr_selection'] != 0):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
-                max_hosts=config_par['max_hosts'],
-                snr_selection=config_par['snr_selection'],
-                sigma_pv=config_par['sigma_pv'],
-                one_host_selection=config_par['one_host_sel'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-        elif (config_par['z_event_sel'] != 0):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
-                max_hosts=config_par['max_hosts'],
-                z_event_sel=config_par['z_event_sel'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-        elif ((config_par['dl_cutoff'] > 0)
-                  and (',' not in config_par['zhorizon'])
-                  and (config_par['zhorizon'] == '1000.0')):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
-                max_hosts=config_par['max_hosts'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'],
-                dl_cutoff=config_par['dl_cutoff'],
-                omega_true=omega_true)
-        elif ((config_par['zhorizon'] != '1000.0')
-                  and (config_par['snr_threshold'] == 0.0)):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
-                max_hosts=config_par['max_hosts'],
-                zhorizon=config_par['zhorizon'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-        elif (config_par['event_ID_list'] != ''):
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None, 
-                event_ID_list=config_par['event_ID_list'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-        elif (config_par['snr_threshold'] != 0.0):
-            if not config_par['reduced_catalog']:
-                events = readdata.read_dark_siren_event(
-                    config_par['data'], None,
-                    max_hosts=config_par['max_hosts'],
-                    snr_threshold=config_par['snr_threshold'],
-                    one_host_selection=config_par['one_host_sel'],
-                    sigma_pv=config_par['sigma_pv'],
-                    z_gal_cosmo=config_par['z_gal_cosmo'])
-            else:
-                events = readdata.read_dark_siren_event(
-                    config_par['data'], None,
-                    max_hosts=config_par['max_hosts'],
-                    snr_threshold=config_par['snr_threshold'],
-                    one_host_selection=config_par['one_host_sel'],
-                    sigma_pv=config_par['sigma_pv'],
-                    z_gal_cosmo=config_par['z_gal_cosmo'],
-                    reduced_cat=config_par['reduced_catalog'])
-        else:
-            events = readdata.read_dark_siren_event(
-                config_par['data'], None,
-                max_hosts=config_par['max_hosts'],
-                one_host_selection=config_par['one_host_sel'],
-                sigma_pv=config_par['sigma_pv'],
-                z_gal_cosmo=config_par['z_gal_cosmo'])
-
+        events = readdata.read_dark_siren_event(
+            config_par['data'],
+            max_hosts=config_par['max_hosts'],
+            z_event_sel=config_par['z_event_sel'],
+            snr_selection=config_par['snr_selection'],
+            sigma_pv=config_par['sigma_pv'],
+            zhorizon=config_par['zhorizon'],
+            one_host_selection=config_par['one_host_sel'],
+            z_gal_cosmo=config_par['z_gal_cosmo'],
+            rel_LISAsigmadl=config_par['rel_LISAsigmadl'],
+            event_ID_list=config_par['event_ID_list'],
+            snr_range=config_par['snr_range'],
+            snr_threshold=config_par['snr_threshold'],
+            reduced_cat=config_par['reduced_catalog'],
+            single_z_from_GW=config_par['single_z_from_GW'],
+            equal_wj=config_par['equal_wj'],
+            gals_dVdz=config_par['gals_dVdz'],
+            gals_uniform=config_par['gals_uniform'],
+            omega_true=omega_true)
     elif (config_par['event_class'] == "MBHB"):
         events = readdata.read_MBHB_event(config_par['data'])
     else:
@@ -751,20 +577,6 @@ def main():
     ### Modifying the event properties according to the user's options.
     ###################################################################
 
-    if ((config_par['single_z_from_GW'] != 0) 
-            and (config_par['one_host_sel'] == 1)):
-        print("\nSimulating a single potential host with redshift"
-              " equal to z_true.")
-        for e in events:
-            e.potential_galaxy_hosts[0].redshift = e.z_true
-            e.potential_galaxy_hosts[0].weight = 1.0
-
-    if (config_par['equal_wj'] == 1):
-        print("\nImposing all the galaxy angular weights equal to 1.")
-        for e in events:
-            for g in e.potential_galaxy_hosts:
-                g.weight = 1.0
-
     if not (config_par['split_data_num'] <= 1):
         assert \
             config_par['split_data_chunk'] <= config_par['split_data_num'], \
@@ -779,28 +591,23 @@ def main():
               f"\nChunk number {config_par['split_data_chunk']} is chosen.")
         events = split_events[config_par['split_data_chunk']-1]
 
+
     print(f"\nDetailed list of the {len(events)} selected event(s):")
     print("\n"+formatting_string)
-    if config_par['event_class'] == "MBHB":
-        events = sorted(events, key=lambda x: getattr(x, 'ID'))
-        for e in events:
-            print("ID: {}  |  ".format(str(e.ID).ljust(3))
-                  +"z_host: {} |  ".format(
-                    str(e.potential_galaxy_hosts[0].redshift).ljust(8))
-                  +"dl: {} Mpc  |  ".format(str(e.dl).ljust(9))
-                  +"sigmadl: {} Mpc  | ".format(str(e.sigmadl)[:6].ljust(7))
-                  +"hosts: {}".format(str(len(e.potential_galaxy_hosts))
-                                         .ljust(4)))
-    else:
-        events = sorted(events, key=lambda x: getattr(x, 'ID'))
-        for e in events:
-            print("ID: {}  |  ".format(str(e.ID).ljust(3))
-                  +"SNR: {} |  ".format(str(e.snr).ljust(9))
-                  +"z_true: {} |  ".format(str(e.z_true).ljust(7))
-                  +"dl: {} Mpc  |  ".format(str(e.dl).ljust(8))
-                  +"sigmadl: {} Mpc  |  ".format(str(e.sigmadl)[:6].ljust(7))
-                  +"hosts: {}".format(str(len(e.potential_galaxy_hosts))
-                                         .ljust(4)))
+    events = sorted(events, key=lambda x: getattr(x, 'ID'))
+    for e in events:
+        print("ID: {}  |  ".format(str(e.ID).ljust(3))
+                +"SNR: {} |  ".format(str(e.snr).ljust(9))
+                +"z_true: {} |  ".format(str(e.z_true).ljust(7))
+                +"dl: {} Mpc  |  ".format(str(e.dl).ljust(9))
+                +"sigmadl: {} Mpc  | ".format(str(e.sigmadl)[:6].ljust(7))
+                +"hosts: {}".format(str(len(e.potential_galaxy_hosts))
+                                        .ljust(8))
+                +"zmin: {}".format(str(e.zmin).ljust(8))
+                +"zmax: {}".format(str(e.zmax).ljust(8)))
+        if config_par['event_class'] == "MBHB":
+            +"z_host: {} |  ".format(
+            str(e.potential_galaxy_hosts[0].redshift).ljust(8))
 
     print(formatting_string+"\n")
     print("nessai will be initialised with:")
@@ -820,7 +627,6 @@ def main():
         event_class=config_par['event_class'],
         T=config_par['T'],
         m_threshold=config_par['m_threshold'],
-        trapezoid=config_par['trapezoid'],
         SFRD=config_par['SFRD'],
         corr_const=corr_const)
 
@@ -840,7 +646,6 @@ def main():
             )
 
         sampler.run()
-        # print(f"log Evidence = {sampler.logZ}")
         print("\n"+formatting_string+"\n")
 
         x = sampler.posterior_samples.ravel()
@@ -848,6 +653,7 @@ def main():
         # Save git info.
         with open("{}/git_info.txt".format(outdir), 'w+') as fileout:
             subprocess.call(['git', 'diff'], stdout=fileout)
+ 
         # Save content of installed files.
         files_to_save = []
         files_path = lk.__file__.replace(lk.__file__.split("/")[-1], "")
@@ -861,7 +667,7 @@ def main():
             output_file.write("____________________\n")
             output_file.write(f"{fi}\n____________________\n")
             output_file.write(f.read())
-            output_file.write("\n\n\n\n\n\n\n\n\n\n")
+            output_file.write(10*"\n")
     else:
         print(f"Reading the .h5 file... from {outdir}")
         import h5py
@@ -873,7 +679,7 @@ def main():
     ###################          MAKE PLOTS         ###################
     ###################################################################
 
-    params = [m for m in C.model if m not in ['GW', 'Rate', 'Luminosity']]
+    params = [m for m in C.model if m not in ['GW', 'Rate']]
 
     if (len(params) == 1):
         plots.histogram(x, par=params[0],
@@ -882,7 +688,7 @@ def main():
         plots.corner_plot(x, pars=params,
                           truths=truths, outdir=outdir)
 
-    # TODO: fix plots for Rate and Luminosity
+    # TODO: fix plots for Rate
     # if ('Rate' in C.model):
     #     if (C.SFRD == 'powerlaw'):
     #         plots.corner_plot(x, model='RatePW', SFRD=C.SFRD, truths=truths,
@@ -892,12 +698,6 @@ def main():
     #                         outdir=outdir)
     #     plots.rate_plots(x, cosmo_model=C, truths=truths, corr=C.corr_const,
     #                      omega_true=omega_true, outdir=outdir)
-
-    # if ('Luminosity' in C.model):
-    #     plots.corner_plot(x, model='Luminosity', 
-    #                       truths=truths, outdir=outdir)
-    #     plots.luminosity_plots(x, cosmo_model=C, 
-    #                            truths=truths, outdir=outdir)
 
     # Compute the run-time.
     if (config_par['postprocess'] == 0):

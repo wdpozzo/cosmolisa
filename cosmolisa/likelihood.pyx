@@ -13,14 +13,178 @@ from cosmolisa.cosmology cimport CosmologicalParameters
 from cosmolisa.astrophysics cimport PopulationModel
 from cosmolisa.galaxy cimport GalaxyDistribution
 
-from cosmolisa.GK_adaptive cimport GKIntegrator # import integrator
-
 cdef inline double log_add(double x, double y) nogil: 
     return x + log(1.0+exp(y-x)) if x >= y else y + log(1.0+exp(x-y))
 
-###########################################################
-# Block to compute the integral using the trapezoidal rule
-###########################################################
+#######################################################################
+
+def beta_int(const double[:,::1] hosts,
+        const double meandl,
+        const double sigmadl,
+        CosmologicalParameters omega,
+        str model,
+        const double zmin,
+        const double zmax,
+        const double dl_thr,
+        const double frac_dl):
+    return _beta_int(hosts, meandl, sigmadl, omega,
+                model, zmin, zmax, dl_thr, frac_dl)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _beta_int(const double[:,::1] hosts,
+                            const double meandl,
+                            const double sigmadl,
+                            CosmologicalParameters omega,
+                            str model,
+                            const double zmin,
+                            const double zmax,
+                            const double dl_thr,
+                            const double frac_dl):
+
+
+    cdef int i
+    cdef int N = 100
+    cdef double z_thr = find_redshift(omega, dl_thr)
+    cdef double dz = (z_thr)/N
+    cdef double z =  dz
+    cdef double I = (0.5
+        * (_beta_integrand(0.0, omega)
+        + _beta_integrand(z_thr, omega)))
+    for i in range(1, N):
+        I += _beta_integrand(z, omega)
+        z += dz
+
+    cdef double dzp = (1.0)/N
+    cdef double zp = dzp
+    cdef double J = (0.5
+        * (_beta_integrand(0.0, omega)
+        + _beta_integrand(1.0, omega)))
+    for i in range(1, N):
+        I += _beta_integrand(zp, omega)
+        z += dzp
+
+
+    return (I*dz) / (J*dzp)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _beta_integrand(const double event_redshift,
+                            CosmologicalParameters omega) nogil:
+
+    cdef unsigned int j
+    cdef double E_z = 0.0
+    cdef double int_inv_E_z = 0.0
+
+    E_z = omega._HubbleParameter(event_redshift)
+    int_E_z = omega._IntegrateHubbleParameter(event_redshift)
+
+    return E_z * int_E_z**2
+
+
+def beta(const double[:,::1] hosts,
+        const double meandl,
+        const double sigmadl,
+        CosmologicalParameters omega,
+        str model,
+        const double zmin,
+        const double zmax,
+        const double dl_thr,
+        const double frac_dl):
+    return _beta(hosts, meandl, sigmadl, omega,
+                model, zmin, zmax, dl_thr, frac_dl)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _beta(const double[:,::1] hosts,
+                            const double meandl,
+                            const double sigmadl,
+                            CosmologicalParameters omega,
+                            str model,
+                            const double zmin,
+                            const double zmax,
+                            const double dl_thr,
+                            const double frac_dl):
+
+    cdef double beta = 0.0
+    # cdef double z_thr = 0.0
+
+    for j in range(hosts.shape[0]):
+        erf_arg = ((dl_thr - omega._LuminosityDistance(hosts[j,0]))/
+                    (sqrt(2.0)*frac_dl*omega._LuminosityDistance(hosts[j,0])))
+        Pdet = 0.5 * (1.0 + erf(erf_arg))
+        beta += Pdet
+
+    # z_thr = find_redshift(omega, dl_thr)
+
+    return beta
+
+
+def zprior_norm(const double zg,
+                const double vp_c,
+                const double wg,
+                CosmologicalParameters omega,
+                const double zmin,
+                const double zmax):
+    return _zprior_norm(zg, vp_c, wg, omega,
+                        zmin, zmax)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _zprior_norm(const double zg, 
+                        const double vp_c, 
+                        const double wg,
+                        CosmologicalParameters omega,
+                        const double zmin,
+                        const double zmax) nogil:
+
+    cdef int i
+    cdef int N = 100
+    cdef double dz = (zmax-zmin)/N
+    cdef double z  = zmin + dz
+    cdef double I = (0.5
+        * (_zprior_norm_integrand(zmin, zg, vp_c, wg, omega)
+        + _zprior_norm_integrand(zmax, zg, vp_c, wg, omega)))
+    for i in range(1, N):
+        I += _zprior_norm_integrand(z, zg, vp_c, wg, omega)
+        z += dz
+    return I*dz
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.nonecheck(False)
+@cython.cdivision(True)
+cdef double _zprior_norm_integrand(const double event_redshift,
+                                        const double zg,
+                                        const double vp_c,
+                                        const double wg,
+                                        CosmologicalParameters omega) nogil:
+
+    cdef double p_z = 0.0
+    cdef double sigma_z, score_z
+    cdef double OneSqrtTwoPi = M_SQRT1_2*0.5*M_2_SQRTPI
+
+    sigma_z = vp_c * (1 + zg)
+    dVdz = omega._ComovingVolumeElement(event_redshift)
+    score_z = (event_redshift - zg)/sigma_z
+    p_z = (OneSqrtTwoPi * (1/sigma_z) #* wg
+                * exp(-0.5*score_z*score_z)) * dVdz
+    
+    return p_z
+
+#######################################################################
+
 def lk_dark_single_event_trap(const double[:,::1] hosts,
                             const double meandl,
                             const double sigmadl,
@@ -30,6 +194,7 @@ def lk_dark_single_event_trap(const double[:,::1] hosts,
                             const double zmax):
     return _lk_dark_single_event_trap(hosts, meandl, sigmadl, omega,
                                       model, zmin, zmax)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -41,7 +206,7 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
                             CosmologicalParameters omega,
                             str model,
                             const double zmin,
-                            const double zmax):
+                            const double zmax) nogil:
 
     cdef int i
     cdef int N = 100
@@ -49,25 +214,31 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
     cdef double z  = zmin + dz
     cdef double I = (0.5
         * (_lk_dark_single_event_integrand_trap(zmin, hosts, meandl,
-                                                sigmadl, omega, model)
+                                                sigmadl, omega, model,
+                                                zmin, zmax)
         + _lk_dark_single_event_integrand_trap(zmax, hosts, meandl,
-                                               sigmadl, omega, model)))
+                                               sigmadl, omega, model,
+                                               zmin, zmax)))
     for i in range(1, N):
         I += _lk_dark_single_event_integrand_trap(z, hosts, meandl,
-                                                  sigmadl, omega, model)
+                                                  sigmadl, omega, model,
+                                                  zmin, zmax)
         z += dz
     return I*dz
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.nonecheck(False)
 @cython.cdivision(True)
 cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
-                                        const double[:,::1] hosts,
+                                        const double[:,::1] hosts, #(Nx4) matrix
                                         const double meandl,
                                         const double sigmadl,
                                         CosmologicalParameters omega,
-                                        str model) nogil:
+                                        str model,
+                                        const double zmin,
+                                        const double zmax) nogil:
 
     cdef unsigned int j
     cdef double dl
@@ -77,6 +248,8 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
     cdef unsigned int N = hosts.shape[0]
     cdef double OneSqrtTwoPi = M_SQRT1_2*0.5*M_2_SQRTPI
     cdef double L_galaxy = 0.0
+    cdef double L_gal_norm = 0.0
+
     if ('Xi0' in model) or ('n1' in model):
         dl = omega._LuminosityDistance_Xi0_n1(event_redshift)
     elif ('b' in model) or ('n2' in model):
@@ -85,6 +258,9 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
         dl = omega._LuminosityDistance(event_redshift)
     cdef double weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
     cdef double SigmaSquared = sigmadl**2 + weak_lensing_error**2
+    # cdef double SigmaSquared = (0.005*meandl)**2
+    # cdef double SigmaSquared = (0.001*meandl)**2
+
     cdef double SigmaNorm = OneSqrtTwoPi * 1/sqrt(SigmaSquared)
 
     # 1/sqrt{2pi*SigmaSquared}*exp(-0.5*(dL-d(O, z_GW))^2/SigmaSquared)
@@ -93,17 +269,29 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
 
     # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
     for j in range(N):
-        # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
+        # Estimate sig_z_j ~ (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
         sigma_z = hosts[j,1] * (1 + hosts[j,0])
+
         # Compute the full single-galaxy term to be summed over Ng.
         score_z = (event_redshift - hosts[j,0])/sigma_z
+
         L_gal = (OneSqrtTwoPi * (1/sigma_z) * hosts[j,2]
                  * exp(-0.5*score_z*score_z))
+        # L_gal_norm = _zprior_norm(hosts[j,0], hosts[j,1],
+        #                         hosts[j,2], omega, zmin, zmax)
+        # L_gal /= L_gal_norm
         L_galaxy += L_gal
     
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
-    return L_detector * L_galaxy
+    dVdz = omega._ComovingVolumeElement(event_redshift)
+    # h0 = omega.h
+    # E_z = omega._HubbleParameter(event_redshift)
+    # int_E_z = omega._IntegrateHubbleParameter(event_redshift)
+    return L_detector * L_galaxy * dVdz #* 1.0/h0**3 * int_E_z*int_E_z
 
+#######################################################################
+#                          BRIGHT SIREN
+#######################################################################
 def lk_bright_single_event_trap(const double[:,::1] hosts,
                             const double meandl,
                             const double sigmadl,
@@ -182,80 +370,6 @@ cdef double _lk_bright_single_event_integrand_trap(
     
     # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
     return L_detector * L_EM
-
-
-###############################################################
-# Block to compute the integral using the Gauss-Kronrod method
-###############################################################
-def lk_dark_single_event(const double[:,::1] hosts,
-                            const double meandl,
-                            const double sigmadl,
-                            CosmologicalParameters omega,
-                            const double zmin,
-                            const double zmax):
-    return _lk_dark_single_event(hosts, meandl, sigmadl, omega,
-                                    zmin, zmax)
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef double _lk_dark_single_event(const double[:,::1] hosts,
-                            const double meandl,
-                            const double sigmadl,
-                            CosmologicalParameters omega,
-                            const double zmin,
-                            const double zmax):
-
-    cdef int limit = 100
-    cdef int minintervals = 2
-    cdef double tol = 1e-5
-    cdef GKIntegrator Integrator = GKIntegrator(limit, minintervals, tol)
-
-    cdef double z
-    cdef tuple args = (hosts, meandl, sigmadl, omega)
-    cdef np.ndarray a = np.array([zmin])
-    cdef np.ndarray b = np.array([zmax])
-    cdef (double, double) result = Integrator.integrate(_lk_dark_single_event_integrand,
-                                         args, a, b)
-    return result[0]
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-@cython.nonecheck(False)
-@cython.cdivision(True)
-cdef double _lk_dark_single_event_integrand(const double event_redshift,
-                                            tuple args):
-    cdef unsigned int j
-    cdef double dl
-    cdef double L_gal = 0.0
-    cdef double L_detector = 0.0
-    cdef double sigma_z, score_z
-    cdef double weak_lensing_error
-    cdef unsigned int N = args[0].shape[0]
-    cdef double OneSqrtTwoPi = M_SQRT1_2*0.5*M_2_SQRTPI
-    cdef double L_galaxy = 0.0
-    cdef CosmologicalParameters O = args[3]
-    dl = O._LuminosityDistance(event_redshift)
-    weak_lensing_error = _sigma_weak_lensing(event_redshift, dl)
-    cdef double SigmaSquared = args[2]**2 + weak_lensing_error**2
-    cdef double SigmaNorm = OneSqrtTwoPi * 1/sqrt(SigmaSquared)
-    # 1/sqrt{2pi*SigmaSquared}*exp(-0.5*(dL-d(O, z_GW))^2/SigmaSquared)
-    L_detector = (SigmaNorm * exp(-0.5*(dl-args[1])*(dl-args[1])
-                  / SigmaSquared))
-
-    # Sum over the observed-galaxy redshifts: p(z_GW | dL, O, M, I) =
-    # sum_j^Ng (w_j/sqrt{2pi}*sig_z_j)*exp(-0.5*(z_j-z_GW)^2/sig_z_j^2)
-    for j in range(N):
-        # Estimate sig_z_j ~= (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
-        sigma_z = args[0][j,1] * (1 + args[0][j,0])
-        # Compute the full single-galaxy term to be summed over Ng.
-        score_z = (event_redshift - args[0][j,0])/sigma_z
-        L_gal = (OneSqrtTwoPi * (1/sigma_z) * args[0][j,2]
-                 * exp(-0.5*score_z*score_z))
-        L_galaxy += L_gal
-    # p(Di | d(O, z_GW), z_GW, O, M, I) * p(z_GW | dL, O, M, I)
-    return L_detector * L_galaxy
 
 
 def loglk_bright_single_event(const double[:,::1] hosts,
