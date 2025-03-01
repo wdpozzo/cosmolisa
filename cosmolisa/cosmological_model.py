@@ -40,6 +40,7 @@ class CosmologicalModel(Model):
         self.z_threshold = kwargs['z_threshold']
         self.snr_threshold = kwargs['snr_threshold']
         self.com_vol = kwargs['com_vol']
+        self.dl_true_host = kwargs['dl_true_host']
         self.O = None
 
         self.gw = 0
@@ -186,8 +187,10 @@ class CosmologicalModel(Model):
         if (self.event_class == 'dark_siren'):
             logL_GW += np.sum([np.log(
                     lk.lk_dark_single_event_trap(
-                    self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                    self.model_str, zmin=e.zmin, zmax=e.zmax,
+                    self.hosts[e.ID], 
+                    e.dl_true_host if self.dl_true_host == 1 else e.dl, 
+                    e.sigmadl, self.O, self.model_str, zmin=e.zmin, 
+                    zmax=e.zmax,
                     com_vol=self.com_vol))
                     for _, e in enumerate(self.data)])
         elif (self.event_class == 'MBHB'):
@@ -270,6 +273,7 @@ def main():
         'truth_par': {"h": 0.673, "om": 0.315, "ol": 0.685},
         'prior_bounds': {"h": [0.6, 0.86], "om": [0.04, 0.5]},
         'com_vol': 0,
+        'dl_true_host': 0,
         'random': 0,
         'zhorizon': "1000.0",
         'rel_LISAsigmadl': 0.0,
@@ -441,6 +445,8 @@ def main():
                 +"SNR: {} |  ".format(str(e.snr).ljust(9))
                 +"z_true: {} |  ".format(str(e.z_true).ljust(7))
                 +"dl: {} Mpc  |  ".format(str(e.dl).ljust(9))
+                +"dl_true_host: {} Mpc  |  ".format(str(e.dl_true_host).ljust(9))
+                +"dl - dl_true_host: {:.3f} Mpc  |  ".format(round(e.dl - e.dl_true_host, 3)).ljust(9)
                 +"sigmadl: {} Mpc  | ".format(str(e.sigmadl)[:6].ljust(7))
                 +"hosts: {}".format(str(len(e.potential_galaxy_hosts))
                                         .ljust(8))
@@ -465,7 +471,9 @@ def main():
         snr_threshold=config_par['snr_threshold'],
         z_threshold=float(config_par['zhorizon']),
         event_class=config_par['event_class'],
-        com_vol=config_par['com_vol'])
+        com_vol=config_par['com_vol'],
+        dl_true_host=config_par['dl_true_host'],
+        )
 
     # FIXME: add all the settings options of nessai.
     # IMPROVEME: postprocess doesn't work when events are 
