@@ -26,6 +26,7 @@ class Event:
                  ID,
                  dl,
                  sigmadl,
+                 dl_true_host,
                  sigma_gw_theta,
                  sigma_gw_phi,
                  redshifts,
@@ -47,6 +48,7 @@ class Event:
         self.ID = ID
         self.dl = dl
         self.sigmadl = sigmadl
+        self.dl_true_host = dl_true_host
         self.sigma_gw_theta = sigma_gw_theta
         self.sigma_gw_phi = sigma_gw_phi
         self.dmax = (self.dl + 3.0*self.sigmadl)
@@ -57,6 +59,7 @@ class Event:
         self.VC = VC
         self.z_true = z_true
         self.z_cosmo_true_host = z_cosmo_true_host
+        self.dl_host = dl_host
         if (self.dmin < 0.0): self.dmin = 0.0
 
 
@@ -258,7 +261,7 @@ def read_dark_siren_event(input_folder,
                           z_event_sel=0, snr_selection=0,
                           snr_threshold=0.0, sigma_pv=0.0023,
                           event_ID_list='', snr_range='', 
-                          zhorizon=0.0,
+                          zhorizon=0.0, dl_scat=0,
                           z_gal_cosmo=0, dl_cutoff=0.0,
                           rel_LISAsigmadl=0.0, equal_wj=0,
                           reduced_cat=0, single_z_from_GW=0, 
@@ -303,7 +306,7 @@ def read_dark_siren_event(input_folder,
     9-phi of the host candidate
     10-best phi measured by the detector
     11-difference between the above two in units of detector phi error
-    12-luminosity distance of the host candidate 
+    12-luminosity distance of the host candidates 
         (in the galaxy catalog cosmology)
     13-best dL measured by the detector
     14-difference between the above two in units of detector dL error
@@ -324,8 +327,8 @@ def read_dark_siren_event(input_folder,
             (event_id, dl, rel_sigmadl, Vc, z_observed_true,
                 # 6      , 7        , 8     ,
                 zmin_true, zmax_true, z_true,
-                # 9 , 10  ,  , , , , , ,
-                zmin, zmax, _,_,_,_,_,_,
+                # 9 , 10  ,  , , , , , 16,
+                zmin, zmax, _,_,_,_,_, dl_true_host,
                 # 17, 18
                 snr, snr_true) = np.loadtxt(input_folder+"/"+ev+"/ID.dat", comments='#')
         except ValueError as err:
@@ -334,6 +337,7 @@ def read_dark_siren_event(input_folder,
         ID = np.int(event_id)
         dl = np.float64(dl)
         sigmadl = np.float64(rel_sigmadl)*dl
+        dl_true_host = np.float64(dl_true_host)
         zmin = np.float64(zmin)
         zmax = np.float64(zmax)
         snr = np.float64(snr)
@@ -365,6 +369,7 @@ def read_dark_siren_event(input_folder,
             events.append(Event(ID,
                                 dl,
                                 sigmadl,
+                                dl_true_host,
                                 sigma_gw_theta,
                                 sigma_gw_phi,
                                 redshifts,
@@ -572,23 +577,35 @@ def read_dark_siren_event(input_folder,
 
     if gals_uniform == 1:
         for e in events:
-            zgals_in_uniform = np.random.uniform(e.zmin, e.zmax, e.n_hosts)
-            weights_uniform = np.ones(e.n_hosts)
+            zup = e.zmax - e.z_true
+            zlow = e.z_true - e.zmin
+            e.zmin = e.zmin - (zup - zlow)
+            zgals_in_uniform = np.random.uniform(e.zmin, e.zmax, 1000)
+            weights_uniform = np.ones(1000)
+            d_redshifts = np.ones(len(zgals_in_uniform))*pv
             e.potential_galaxy_hosts = [Galaxy(r, dr, w, m)
                 for r, dr, w, m in zip(zgals_in_uniform, d_redshifts,
                                        weights_uniform, magnitudes)]
 
+    if dl_scat == 1:
+        from cosmolisa.likelihood import sigma_weak_lensing
+        for e in events:
+            print(f"ID: {e.ID} \t True dL: {e.dl}")
+            wl_err = sigma_weak_lensing(e.z_true, e.dl)
+            sigma_tot = np.sqrt(e.sigmadl**2 + wl_err**2)
+            e.dl = np.random.normal(e.dl, sigma_tot)
+            print(f"\t Scattered dl: {e.dl}")
 
     if snr_range != '':
         snr_min, snr_max = snr_range.split(',')
         events = [e for e in events if float(snr_min) <= e.snr <= float(snr_max)]
 
 
-
     analysis_events = events
     del events_list
 
     return analysis_events
+
 
 def pick_random_events(events, number):
     print(f"\nSelecting {number} random events for joint analysis.")

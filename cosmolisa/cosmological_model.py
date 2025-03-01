@@ -15,33 +15,10 @@ from cosmolisa import readdata
 from cosmolisa import plots
 from cosmolisa import cosmology as cs
 from cosmolisa import likelihood as lk
-from cosmolisa import astrophysics as astro
 # import nessai
 from nessai.model import Model
 from nessai.flowsampler import FlowSampler
 
-# Parameters used to compute GW corrections.
-# From log-linear regressions on the full catalogs.
-correction_constants = {
-    "M1": {
-        "rho_dl_const": 5924.963574709556,
-        "rho_dl_exp": -0.5888459332377088,
-        "sigma_rho_const": 26872.018051453044,
-        "sigma_rho_exp": -1.488320189867221,
-        },
-    "M5": {
-        "rho_dl_const": 84473.82928926783,
-        "rho_dl_exp": -0.8762418490187381,
-        "sigma_rho_const": 21491.17808251121,
-        "sigma_rho_exp": -1.3778409540277086,
-        },
-    "M6": {
-        "rho_dl_const": 23299.6073092681,
-        "rho_dl_exp": -0.7410364171468602,
-        "sigma_rho_const": 23912.19661928212,
-        "sigma_rho_exp": -1.4248802911482044,
-        },
-    }
 
 class CosmologicalModel(Model):
     """CosmologicalModel class:
@@ -52,25 +29,20 @@ class CosmologicalModel(Model):
     have to be explicitly defined inside this class.
     """
 
-    def __init__(self, model, data, corrections, *args, **kwargs):
+    def __init__(self, model, data, *args, **kwargs):
 
         self.data = data
         self.N = len(self.data)
         self.event_class = kwargs['event_class']
         self.model_str = model
         self.model = model.split("+")
-        self.corrections = corrections.split("+")
         self.truths = kwargs['truths']
         self.z_threshold = kwargs['z_threshold']
         self.snr_threshold = kwargs['snr_threshold']
-        self.T = kwargs['T']
+        self.com_vol = kwargs['com_vol']
         self.O = None
 
         self.gw = 0
-        self.rate = 0
-        self.SFRD = None
-        self.corr_const = kwargs['corr_const']
-
         self.names_list = []
         self.bounds_dict = dict()
 
@@ -129,35 +101,6 @@ class CosmologicalModel(Model):
         else:
             self.gw = 0
         
-        if ('Rate' in self.model):
-            self.SFRD = kwargs['SFRD']
-            self.rate = 1
-            self.gw_correction = 1
-
-            self.names.append('log10r0')
-            self.bounds.append([-15., -5.])
-            if (self.SFRD == 'madau-porciani'):
-                # e(z) = r0*(1+W) *exp(Q*z) /(exp(R*z) +W)
-                # e(z) = r0*(1+p1)*exp(p2*z)/(exp(p3*z)+p1).
-                self.names.append('log10p1')
-                self.bounds.append([-1., 4.])
-                self.names.append('p2')
-                self.bounds.append([0.0, 150.0])
-                self.names.append('p3')
-                self.bounds.append([0.0, 150.0])
-            elif (self.SFRD == 'madau-fragos'):
-                # psi(z) = r0*(1+z)**p1/(1+((1+z)/p2)**p3).
-                self.names.append('log10p1')
-                self.bounds.append([-1., 1.5])
-                self.names.append('p2')
-                self.bounds.append([0.0, 50.0])
-                self.names.append('p3')
-                self.bounds.append([0.0, 12.0])
-            elif (self.SFRD == 'powerlaw'):
-                # psi(z) = r0*(1+z)**p1.
-                self.names.append('p1')
-                self.bounds.append([-5.0, 5.0])
-
 
         assert len(self.names) != 0, ("Undefined parameter space!"
         "Please check that the model exists.")
@@ -169,23 +112,13 @@ class CosmologicalModel(Model):
             self.gw_redshifts = np.array([e.z_true for e in self.data])
         
         self._initialise_galaxy_hosts()
-        
-        if not('Rate' in self.model):
-            if ('GW' in corrections):
-                self.SFRD = kwargs['SFRD']
-                self.gw_correction = 1
-            else:
-                self.SFRD = None
-                self.gw_correction = 0
-        
+            
 
         print("\n"+5*"===================="+"\n")
         print("CosmologicalModel model initialised with:")
         print(f"Event class: {self.event_class}")
         print(f"Analysis model: {self.model}")
-        print(f"Star Formation Rate Density model: {self.SFRD}")
         print(f"Number of events: {len(self.data)}")
-        print(f"GW correction: {self.gw_correction}")
         print(f"Free parameters: {self.names}")
         print("\n"+5*"===================="+"\n")
         print("Prior bounds:")
@@ -215,31 +148,6 @@ class CosmologicalModel(Model):
         for n in self.names:
             logP -= np.log(self.bounds[n][1] - self.bounds[n][0])
 
-            # FIXME: this block probably must go into log_likelihood.
-            # Check for the rate model or GW corrections.
-            if ('Rate' in self.model):
-                if (self.SFRD == 'powerlaw'):
-                    self.population_model = astro.PopulationModel(
-                        10**x['log10r0'], x['p1'], 0.0, 0.0, 0.0,
-                        self.O, 1e-5, self.z_threshold,
-                        density_model=self.SFRD)
-                else:
-                    self.population_model = astro.PopulationModel(
-                        10**x['log10r0'], 10**x['log10p1'], x['p2'], x['p3'],
-                        0.0, self.O, 1e-5, self.z_threshold,
-                        density_model=self.SFRD)
-                if (self.SFRD == 'madau-porciani'):
-                    if (x['p3'] < x['p2']):
-                        # We want the merger rate to asymptotically
-                        # either go to zero or to a finite number.
-                        return -np.inf
-            elif (self.gw_correction == 1):
-                self.population_model = astro.PopulationModel(
-                    self.truths['r0'], self.truths['p1'], self.truths['p2'],
-                    self.truths['p3'], 0.0, self.O, 1e-5, self.z_threshold,
-                    density_model=self.SFRD)
-
-
         return logP
 
     def log_likelihood(self, x):
@@ -248,8 +156,6 @@ class CosmologicalModel(Model):
         to the options specified by the user.
         """
         logL_GW = np.zeros(x.size)
-        logL_rate = np.zeros(x.size)
-
         cosmo_par = [self.truths['h'], self.truths['om'],
                      self.truths['ol'], self.truths['w0'],
                      self.truths['w1'], self.truths['Xi0'],
@@ -277,65 +183,25 @@ class CosmologicalModel(Model):
             pass                
         self.O = cs.CosmologicalParameters(*cosmo_par)
 
-        # If we are estimating the rate or we are correcting for 
-        # GW selection effects, we need this part.
-        if (self.rate == 1) or (self.gw_correction == 1):
-            # Compute the number of sources happening per year 
-            # up to z_threshold times observation time: 
-            # T * int_zmin^zmax (dR/dz)*dz
-            Ns_tot = self.population_model.integrated_rate() * self.T
-
-            #NB: this was not present before!
-            if (Ns_tot < self.N):
-                return -np.inf 
-
-            # Compute the number of events above detection threshold.
-            # GW selection effects only enter through this term.
-            Ns_up_tot = lk.number_of_detectable_gw(self.population_model,
-                self.snr_threshold, self.corr_const) * self.T
-            # Compute the contribution to the likelihood.
-            logL_rate = -Ns_up_tot + self.N * np.log(Ns_tot)
-            # If we do not care about GWs, compute the rate density
-            # at the known GW redshifts and return.
-            if (self.gw == 0):
-                return (logL_rate
-                        + np.sum([lk.logLikelihood_single_event_rate_only(
-                                 e.z_true, self.population_model, Ns_tot) 
-                                 for e in self.data]))
-
-            logL_GW += np.sum([np.log(lk.lk_dark_single_event(
+        if (self.event_class == 'dark_siren'):
+            logL_GW += np.sum([np.log(
+                    lk.lk_dark_single_event_trap(
                     self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                    x['z%d'%e.ID], zmin=e.zmin, zmax=e.zmax))
-                    + np.log(self.population_model.pdf(x['z%d'%e.ID])
-                    / self.T) for j, e in enumerate(self.data)])
-        else:
-            if (self.event_class == 'dark_siren'):
-                dl_thr = 3000.0
-                frac_dl = 0.02
-                logL_GW += np.sum([np.log(
-                        lk.lk_dark_single_event_trap(
-                        self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                        self.model_str, zmin=e.zmin, zmax=e.zmax))
-                        ###########################
-                        # - np.log(lk.beta(self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                        # self.model_str, zmin=e.zmin, zmax=e.zmax, 
-                        # dl_thr=dl_thr, frac_dl=frac_dl))
-                        ###########################
-                        for j, e in enumerate(self.data)])
-            elif (self.event_class == 'MBHB'):
-                logL_GW += np.sum([np.log(
-                        lk.lk_bright_single_event_trap(
-                        self.hosts[e.ID], e.dl, e.sigmadl, self.O,
-                        self.model_str, zmin=e.zmin, zmax=e.zmax))
-                        for j, e in enumerate(self.data)])
+                    self.model_str, zmin=e.zmin, zmax=e.zmax,
+                    com_vol=self.com_vol))
+                    for _, e in enumerate(self.data)])
+        elif (self.event_class == 'MBHB'):
+            logL_GW += np.sum([np.log(
+                    lk.lk_bright_single_event_trap(
+                    self.hosts[e.ID], e.dl, e.sigmadl, self.O,
+                    self.model_str, zmin=e.zmin, zmax=e.zmax))
+                    for _, e in enumerate(self.data)])
                     
         # IMPROVEME
         # Same results are obtained without destroying self.O.
-        # Is this line really necessary?
         self.O.DestroyCosmologicalParameters()
 
-        return logL_GW + logL_rate
-
+        return logL_GW
 
 usage="""\n\n %prog --config-file config.ini\n
     ######################################################################################################################################################
@@ -350,13 +216,11 @@ usage="""\n\n %prog --config-file config.ini\n
     'data'                 Default: ''.                                      Data location.
     'outdir'               Default: './default_dir'.                         Directory for output.
     'event_class'          Default: ''.                                      Class of the event(s) ['dark_siren', 'MBHB'].
-    'model'                Default: ''.                                      Specify the cosmological parameters to sample over ['h', 'om', 'ol', 'w0', 'wa', 'Xi0', 'n1', 'b', 'n2'] and the type of analysis ['GW', 'Rate'] separated by a '+'.
+    'model'                Default: ''.                                      Specify the cosmological parameters to sample over ['h', 'om', 'ol', 'w0', 'wa', 'Xi0', 'n1', 'b', 'n2'] and the type of analysis ['GW'] separated by a '+'.
     'truths'               Default: {"h": 0.673, "om": 0.315, "ol": 0.685}.  Cosmology truths values. If not specified, default values are used.
     'prior_bounds'         Default: {"h": [0.6, 0.86], "om": [0.04, 0.5]}.   Prior bounds specified by the user. Must contain all the parameters specified in 'model'.
-    'corrections'          Default: ''.                                      Family of corrections ('GW', 'EM') separated by a '+'.
     'random'               Default: 0.                                       Run a joint analysis with N events, randomly selected.
     'zhorizon'             Default: '1000.0'.                                Impose low-high cutoffs in redshift. It can be a single number (upper limit) or a string with z_min and z_max separated by a comma.
-    'SFRD'                 Default: ''.                                      Star Formation Rate Density model assumed for the event rate ['madau-porciani, madau-fragos, powerlaw'].
     'z_event_sel'          Default: 0.                                       Select N events ordered by redshift. If positive (negative), choose the X nearest (farthest) events.
     'one_host_sel'         Default: 0.                                       For each event, associate only the nearest-in-redshift host (between z_gal and event z_true).
     'single_z_from_GW'     Default: 0.                                       Impose a single host for each GW having redshift equal to z_true. It works only if one_host_sel = 1.
@@ -369,13 +233,9 @@ usage="""\n\n %prog --config-file config.ini\n
     'sigma_pv'             Default: 0.0023.                                  Uncertainty associated to peculiar velocity value, equal to (vp / c), used in the computation of the GW redshift uncertainty (0.0015 in https://arxiv.org/abs/1703.01300).
     'split_data_num'       Default: 1.                                       Choose the number of parts into which to divide the list of events. Values: any integer number equal or greater than 2.
     'split_data_chunk'     Default: 0.                                       Choose which chunk of events to analyse. Only works if split_data_num > 1. Values: 1 up to split_data_num.
-    'T'                    Default: 10.0.                                    Observation time (yr).
     'reduced_catalog'      Default: 0.                                       Select randomly only a fraction of the catalog (4 yrs of observation, hardcoded).
-    'm_threshold'          Default: 20.                                      Apparent magnitude threshold.
-    'em_selection'         Default: 0.                                       Use an EM selection function in dark_siren plots.
     'postprocess'          Default: 0.                                       Run only the postprocessing. It works only with reduced_catalog=0.
     'screen_output'        Default: 0.                                       Print the output on screen or save it into a file.
-
     'nlive'                Default: 1000.                                    Number of live points.
     'seed'                 Default: 0.                                       Random seed initialisation.
     'pytorch_threads'      Default: 1.                                       Number of threads that pytorch can use.
@@ -409,11 +269,11 @@ def main():
         'model': '',
         'truth_par': {"h": 0.673, "om": 0.315, "ol": 0.685},
         'prior_bounds': {"h": [0.6, 0.86], "om": [0.04, 0.5]},
-        'corrections': '',
+        'com_vol': 0,
         'random': 0,
         'zhorizon': "1000.0",
-        'SFRD': '',
         'rel_LISAsigmadl': 0.0,
+        'dl_scat': 0,
         'z_event_sel': 0,
         'one_host_sel': 0,
         'single_z_from_GW': 0,
@@ -429,10 +289,7 @@ def main():
         'sigma_pv': 0.0023,
         'split_data_num': 1,
         'split_data_chunk': 0,
-        'T': 10.,
         'reduced_catalog': 0,
-        'm_threshold': 20,
-        'em_selection': 0,
         'postprocess': 0,
         'screen_output': 0,    
         'nlive': 1000,
@@ -477,8 +334,7 @@ def main():
 
     print("\n"+formatting_string)
     print("\n"+"Running cosmoLISA")
-    # FIXME
-    # The code doesn't like the follwing line:
+    # FIXME: The code doesn't like the following line:
     # NameError: name 'nessai' is not defined
     # print(f"nessai installation version: {nessai.__version__}")
     print(f"cosmolisa likelihood version: {lk.__file__}")
@@ -499,11 +355,6 @@ def main():
         'n1': 1.5,
         'b': 0.0,
         'n2': 1.0,
-        'r0': 5e-10,
-        'p1': 41.0,
-        'p2': 2.4,
-        'p3': 5.2,
-        'p4': 0.0,
         }
 
     for par in truths.keys():
@@ -522,17 +373,6 @@ def main():
                                            truths['n1'], truths['b'],
                                            truths['n2'])
 
-    if ("EMRI_SAMPLE_MODEL101" in config_par['data']):
-        corr_const = correction_constants["M1"]
-    elif ("EMRI_SAMPLE_MODEL105" in config_par['data']):
-        corr_const = correction_constants["M5"]
-    elif ("EMRI_SAMPLE_MODEL106" in config_par['data']):
-        corr_const = correction_constants["M6"]
-    else:
-        corr_const = correction_constants["M1"]
-        if ('Rate' in config_par['model'] or
-            'GW' in config_par['corrections']):
-            print("WARNING: reading default correction constants (M1).")
 
     ###################################################################
     ### Reading the catalog according to the user's options.
@@ -549,6 +389,7 @@ def main():
             zhorizon=config_par['zhorizon'],
             one_host_selection=config_par['one_host_sel'],
             z_gal_cosmo=config_par['z_gal_cosmo'],
+            dl_scat=config_par['dl_scat'],
             rel_LISAsigmadl=config_par['rel_LISAsigmadl'],
             event_ID_list=config_par['event_ID_list'],
             snr_range=config_par['snr_range'],
@@ -619,16 +460,12 @@ def main():
     C = CosmologicalModel(
         model=config_par['model'],
         data=events,
-        corrections=config_par['corrections'],
         truths=truths,
         prior_bounds=config_par['prior_bounds'],
         snr_threshold=config_par['snr_threshold'],
         z_threshold=float(config_par['zhorizon']),
         event_class=config_par['event_class'],
-        T=config_par['T'],
-        m_threshold=config_par['m_threshold'],
-        SFRD=config_par['SFRD'],
-        corr_const=corr_const)
+        com_vol=config_par['com_vol'])
 
     # FIXME: add all the settings options of nessai.
     # IMPROVEME: postprocess doesn't work when events are 
@@ -671,15 +508,15 @@ def main():
     else:
         print(f"Reading the .h5 file... from {outdir}")
         import h5py
-        filename = os.path.join(outdir,"raynest","results.json")
-        h5_file = h5py.File(filename,'r')
+        filename = os.path.join(outdir,"raynest", "results.json")
+        h5_file = h5py.File(filename, 'r')
         x = h5_file['combined'].get('posterior_samples')
 
     ###################################################################
     ###################          MAKE PLOTS         ###################
     ###################################################################
 
-    params = [m for m in C.model if m not in ['GW', 'Rate']]
+    params = [m for m in C.model if m not in ['GW']]
 
     if (len(params) == 1):
         plots.histogram(x, par=params[0],
@@ -687,17 +524,6 @@ def main():
     else:
         plots.corner_plot(x, pars=params,
                           truths=truths, outdir=outdir)
-
-    # TODO: fix plots for Rate
-    # if ('Rate' in C.model):
-    #     if (C.SFRD == 'powerlaw'):
-    #         plots.corner_plot(x, model='RatePW', SFRD=C.SFRD, truths=truths,
-    #                         outdir=outdir)
-    #     else:
-    #         plots.corner_plot(x, model='Rate', SFRD=C.SFRD, truths=truths, 
-    #                         outdir=outdir)
-    #     plots.rate_plots(x, cosmo_model=C, truths=truths, corr=C.corr_const,
-    #                      omega_true=omega_true, outdir=outdir)
 
     # Compute the run-time.
     if (config_par['postprocess'] == 0):
