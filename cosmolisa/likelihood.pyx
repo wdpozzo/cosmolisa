@@ -91,13 +91,9 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
                                         gal_interp,
                                         const double com_vol):
 
-    cdef unsigned int j
     cdef double dl
-    cdef double L_gal = 0.0
     cdef double L_galaxy = 0.0
     cdef double L_detector = 0.0
-    cdef double sigma_z, score_z
-    cdef unsigned int Ng = hosts.shape[0]
     cdef double OneOverSqrtTwoPi = M_SQRT1_2*0.5*M_2_SQRTPI # 1/sqrt(2*pi)
 
     # GW likelihood: N(dl - meandl; sigmadl^2)
@@ -108,21 +104,8 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
     L_detector = (SigmaNorm * exp(-0.5*(dl-meandl)*(dl-meandl)
                   / SigmaSquared))
 
-    # cdef double normalization_factor = 0.0
-    # cdef int i
-    # cdef int N = 100
-    # cdef double dz = (zmax - zmin) / N
-    # cdef double z = zmin
-    # with gil:
     L_galaxy = gal_interp(event_redshift)
-    #     # Normalize L_galaxy over the range [zmin, zmax]
-    #     for i in range(N + 1):
-    #         normalization_factor += gal_interp(z) * dz
-    #         z += dz
 
-    # L_galaxy /= normalization_factor
-
-    # Additional dV/dz factor
     if com_vol == 1:
         L_galaxy *= omega._ComovingVolumeElement(event_redshift) 
 
