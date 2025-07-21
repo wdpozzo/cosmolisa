@@ -2,17 +2,13 @@ cimport cython
 
 cdef class CosmologicalParameters:
 
-    def __cinit__(self, double h, double om, double ol, double w0, double w1,
-                  double Xi0, double n1, double b, double n2):
+    def __cinit__(self, double h, double om, double ol, 
+                double w0, double w1):
         self.h = h
         self.om = om
         self.ol = ol
         self.w0 = w0
         self.w1 = w1
-        self.Xi0 = Xi0
-        self.n1 = n1
-        self.b = b
-        self.n2 = n2
         self._LALCosmologicalParameters = XLALCreateCosmologicalParameters(
                 self.h, self.om, self.ol, self.w0, self.w1, 0.0)
 

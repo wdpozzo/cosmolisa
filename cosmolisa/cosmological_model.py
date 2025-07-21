@@ -15,6 +15,7 @@ from cosmolisa import readdata
 from cosmolisa import plots
 from cosmolisa import cosmology as cs
 from cosmolisa import likelihood as lk
+# from cosmolisa import build_interpolant as galinterp
 # import nessai
 from nessai.model import Model
 from nessai.flowsampler import FlowSampler
@@ -31,6 +32,7 @@ class CosmologicalModel(Model):
 
     def __init__(self, model, data, *args, **kwargs):
 
+        # Define class attributes
         self.data = data
         self.N = len(self.data)
         self.event_class = kwargs['event_class']
@@ -42,8 +44,9 @@ class CosmologicalModel(Model):
         self.com_vol = kwargs['com_vol']
         self.dl_true_host = kwargs['dl_true_host']
         self.O = None
+        self.gal_interp = kwargs['gal_interp']
 
-        self.gw = 0
+        # Define priors and bounds
         self.names_list = []
         self.bounds_dict = dict()
 
@@ -67,21 +70,6 @@ class CosmologicalModel(Model):
             self.names_list.append('w1')
             self.bounds_dict['w1'] = kwargs['prior_bounds']['w1']
 
-        if ('Xi0' in self.model):
-            self.names_list.append('Xi0')
-            self.bounds_dict['Xi0'] = kwargs['prior_bounds']['Xi0']
-
-        if ('n1' in self.model):
-            self.names_list.append('n1')
-            self.bounds_dict['n1'] = kwargs['prior_bounds']['n1']
-
-        if ('b' in self.model):
-            self.names_list.append('b')
-            self.bounds_dict['b'] = kwargs['prior_bounds']['b']
-
-        if ('n2' in self.model):
-            self.names_list.append('n2')
-            self.bounds_dict['n2'] = kwargs['prior_bounds']['n2']
         # Some consistency checks.
         for par in self.names_list:
             assert kwargs['prior_bounds'][par][0] <= self.truths[par], (
@@ -96,21 +84,10 @@ class CosmologicalModel(Model):
 
         self.names = self.names_list
         self.bounds = self.bounds_dict
-
-        if ('GW' in self.model):
-            self.gw = 1
-        else:
-            self.gw = 0
         
-
         assert len(self.names) != 0, ("Undefined parameter space!"
         "Please check that the model exists.")
 
-        # If we are using GWs, add the relevant redshift parameters.
-        if (self.gw == 1):
-            pass
-        else:
-            self.gw_redshifts = np.array([e.z_true for e in self.data])
         
         self._initialise_galaxy_hosts()
             
@@ -134,12 +111,8 @@ class CosmologicalModel(Model):
             }
         self.galaxy_redshifts = np.hstack([self.hosts[e.ID][:,0] 
             for e in self.data]).copy(order='C')
-        self.galaxy_magnitudes = np.hstack([self.hosts[e.ID][:,3] 
-            for e in self.data]).copy(order='C')
-        self.areas = {
-            e.ID: 0.000405736691211125 * (87./e.snr)**2 for e in self.data
-            }
-        
+
+
     def log_prior(self, x):
         """
         Returns natural-log of prior given a live point assuming
@@ -151,6 +124,7 @@ class CosmologicalModel(Model):
 
         return logP
 
+
     def log_likelihood(self, x):
         """Natural-log-likelihood assumed in the inference.
         It implements the inference model settings according
@@ -159,9 +133,7 @@ class CosmologicalModel(Model):
         logL_GW = np.zeros(x.size)
         cosmo_par = [self.truths['h'], self.truths['om'],
                      self.truths['ol'], self.truths['w0'],
-                     self.truths['w1'], self.truths['Xi0'],
-                     self.truths['n1'], self.truths['b'],
-                     self.truths['n2']]
+                     self.truths['w1']]
         if ('h' in self.model):
             cosmo_par[0] = x['h']
         if ('om' in self.model):
@@ -171,37 +143,29 @@ class CosmologicalModel(Model):
         if ('w0' in self.model):
             cosmo_par[3] = x['w0']
         if ('w1' in self.model):
-            cosmo_par[4] = x['w1']
-        if ('Xi0' in self.model):
-            cosmo_par[5] = x['Xi0']
-        if ('n1' in self.model):
-            cosmo_par[6] = x['n1']
-        if ('b' in self.model):
-            cosmo_par[7] = x['b']                
-        if ('n2' in self.model):
-            cosmo_par[8] = x['n2']                
+            cosmo_par[4] = x['w1']            
         else:
             pass                
         self.O = cs.CosmologicalParameters(*cosmo_par)
 
         if (self.event_class == 'dark_siren'):
-            logL_GW += np.sum([np.log(
+            logL_GW += np.sum([
+                np.log(likelihood) if likelihood > 0 else -np.inf
+                for likelihood in [
                     lk.lk_dark_single_event_trap(
                     self.hosts[e.ID], 
                     e.dl_true_host if self.dl_true_host == 1 else e.dl, 
                     e.sigmadl, self.O, self.model_str, zmin=e.zmin, 
-                    zmax=e.zmax,
-                    com_vol=self.com_vol))
-                    for _, e in enumerate(self.data)])
+                    zmax=e.zmax, gal_interp=self.gal_interp[str(e.ID)],
+                    com_vol=self.com_vol)
+                    for _, e in enumerate(self.data)]])
         elif (self.event_class == 'MBHB'):
             logL_GW += np.sum([np.log(
                     lk.lk_bright_single_event_trap(
                     self.hosts[e.ID], e.dl, e.sigmadl, self.O,
                     self.model_str, zmin=e.zmin, zmax=e.zmax))
                     for _, e in enumerate(self.data)])
-                    
-        # IMPROVEME
-        # Same results are obtained without destroying self.O.
+
         self.O.DestroyCosmologicalParameters()
 
         return logL_GW
@@ -355,10 +319,6 @@ def main():
         'ol': 0.685,
         'w0': -1.0,
         'w1': 0.0,
-        'Xi0': 1.0,
-        'n1': 1.5,
-        'b': 0.0,
-        'n2': 1.0,
         }
 
     for par in truths.keys():
@@ -373,9 +333,7 @@ def main():
 
     omega_true = cs.CosmologicalParameters(truths['h'], truths['om'],
                                            truths['ol'], truths['w0'],
-                                           truths['w1'], truths['Xi0'],
-                                           truths['n1'], truths['b'],
-                                           truths['n2'])
+                                           truths['w1'])
 
 
     ###################################################################
@@ -436,6 +394,9 @@ def main():
               f"\nChunk number {config_par['split_data_chunk']} is chosen.")
         events = split_events[config_par['split_data_chunk']-1]
 
+    gal_interp = {}
+    for e in events:
+        gal_interp[str(e.ID)] = lk.build_interpolant(e)
 
     print(f"\nDetailed list of the {len(events)} selected event(s):")
     print("\n"+formatting_string)
@@ -466,6 +427,7 @@ def main():
     C = CosmologicalModel(
         model=config_par['model'],
         data=events,
+        gal_interp=gal_interp,
         truths=truths,
         prior_bounds=config_par['prior_bounds'],
         snr_threshold=config_par['snr_threshold'],
@@ -476,9 +438,6 @@ def main():
         )
 
     # FIXME: add all the settings options of nessai.
-    # IMPROVEME: postprocess doesn't work when events are 
-    # randomly selected, since 'events' in C are different 
-    # from the ones read from chain.txt.
     if (config_par['postprocess'] == 0):
         sampler = FlowSampler(
             C,

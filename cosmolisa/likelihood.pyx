@@ -3,8 +3,7 @@
 # distutils: define_macros=CYTHON_TRACE_NOGIL=1
 """
 cimport cython
-from libc.math cimport log, exp, sqrt, cos, fabs, sin, sinh, M_PI, \
-    erf, erfc, HUGE_VAL, log1p, M_SQRT1_2, M_2_SQRTPI
+from libc.math cimport exp, sqrt, M_SQRT1_2, M_2_SQRTPI, pi
 from scipy.optimize import newton
 
 from cosmolisa.cosmology cimport CosmologicalParameters
@@ -21,9 +20,10 @@ def lk_dark_single_event_trap(const double[:,::1] hosts,
                             str model,
                             const double zmin,
                             const double zmax,
+                            gal_interp,
                             const double com_vol):
     return _lk_dark_single_event_trap(hosts, meandl, sigmadl, omega,
-                                      model, zmin, zmax, com_vol)
+                                      model, zmin, zmax, gal_interp, com_vol)
 
 
 @cython.boundscheck(False) # Disable bounds checking for array accesses
@@ -37,25 +37,43 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
                             str model,
                             const double zmin,
                             const double zmax,
-                            const double com_vol) nogil:
+                            gal_interp,
+                            const double com_vol):
 
     cdef int i
     cdef int N = 100
     cdef double dz = (zmax-zmin)/N
     cdef double z  = zmin + dz
+    cdef double z_prior_norm = 0.0
     cdef double I = (0.5
         * (_lk_dark_single_event_integrand_trap(zmin, hosts, meandl,
                                                 sigmadl, omega, model,
-                                                zmin, zmax, com_vol)
+                                                zmin, zmax, gal_interp,
+                                                com_vol)
         + _lk_dark_single_event_integrand_trap(zmax, hosts, meandl,
                                                sigmadl, omega, model,
-                                               zmin, zmax, com_vol)))
+                                               zmin, zmax, gal_interp,
+                                               com_vol)))
+    if not com_vol == 1:
+        z_prior_norm = (0.5 * (gal_interp(zmin) + gal_interp(zmax)))
+    else:
+        z_prior_norm = (0.5 * (gal_interp(zmin)
+                * omega._ComovingVolumeElement(zmin) 
+                + gal_interp(zmax)*omega._ComovingVolumeElement(zmax)))
+
     for i in range(1, N):
         I += _lk_dark_single_event_integrand_trap(z, hosts, meandl,
                                                   sigmadl, omega, model,
-                                                  zmin, zmax, com_vol)
+                                                  zmin, zmax, gal_interp,
+                                                  com_vol)
+        if not com_vol == 1:
+            z_prior_norm += gal_interp(z)
+        else:
+            z_prior_norm += gal_interp(z)*omega._ComovingVolumeElement(z) 
+
         z += dz
-    return I*dz
+    
+    return I*dz/z_prior_norm
 
 
 @cython.boundscheck(False)
@@ -70,7 +88,8 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
                                         str model,
                                         const double zmin,
                                         const double zmax,
-                                        const double com_vol) nogil:
+                                        gal_interp,
+                                        const double com_vol):
 
     cdef unsigned int j
     cdef double dl
@@ -89,24 +108,25 @@ cdef double _lk_dark_single_event_integrand_trap(const double event_redshift,
     L_detector = (SigmaNorm * exp(-0.5*(dl-meandl)*(dl-meandl)
                   / SigmaSquared))
 
-    # Redshift prior: sum_j^Ng w_j*N(z - zj; sigmaz^2)
-    for j in range(Ng):
+    # cdef double normalization_factor = 0.0
+    # cdef int i
+    # cdef int N = 100
+    # cdef double dz = (zmax - zmin) / N
+    # cdef double z = zmin
+    # with gil:
+    L_galaxy = gal_interp(event_redshift)
+    #     # Normalize L_galaxy over the range [zmin, zmax]
+    #     for i in range(N + 1):
+    #         normalization_factor += gal_interp(z) * dz
+    #         z += dz
 
-        # Estimate sig_z_j ~ (z_jobs-z_jcos) = (v_pec/c)*(1+z_j).
-        sigma_z = hosts[j,1] * (1 + hosts[j,0])
+    # L_galaxy /= normalization_factor
 
-        score_z = (event_redshift - hosts[j,0])/sigma_z
-        L_gal = (hosts[j,2] * OneOverSqrtTwoPi * (1/sigma_z)
-                 * exp(-0.5*score_z*score_z))
-        L_galaxy += L_gal
-  
     # Additional dV/dz factor
     if com_vol == 1:
-        dVdz = omega._ComovingVolumeElement(event_redshift)
-    else:
-        dVdz = 1.0
+        L_galaxy *= omega._ComovingVolumeElement(event_redshift) 
 
-    return L_detector * L_galaxy * dVdz
+    return L_detector * L_galaxy
 
 
 #######################################################################
@@ -209,6 +229,60 @@ cdef double _lk_bright_single_event_integrand_trap(
 #                   Other functions                      #
 #                                                        #
 ##########################################################
+
+
+cpdef build_interpolant(event):
+    """Build an interpolant for the galaxy redshift prior of the event.
+    Parameters
+    ----------
+    event: Event
+        The event for which to build the interpolant.
+    Returns
+    -------
+    interpolant: function
+        A function of the galaxy weighted mixture model.
+    """
+    import numpy as np
+    from scipy.interpolate import interp1d
+
+    cdef int i
+    cdef double[:] z_range = np.linspace(event.zmin, event.zmax, 1000)
+    # cdef cnp.ndarray[double, ndim=1] z_range = np.linspace(event.zmin, event.zmax, 1000)
+    cdef double[:] mixture = np.zeros(z_range.shape[0])
+
+    for gal in event.potential_galaxy_hosts:
+        sigma_z = gal.dredshift * (1 + gal.redshift)
+        for i in range(len(z_range)):
+            score_z = (z_range[i] - gal.redshift) / sigma_z
+            p_gal = (gal.weight / (sqrt(2 * pi) * sigma_z)
+                     * exp(-0.5 * score_z**2))
+            mixture[i] += p_gal
+
+    # NO DIFFERENCE IF THE FOLLOWING TWO LINES ARE INCLUDED 
+    # (AS EXPECTED SINCE THIS NORMALIZATION DOES NOT DEPEND ON 
+    # THE COSMOLOGY)
+    # cdef double normalization_factor = np.trapz(mixture, z_range)
+    # mixture = np.asarray(mixture) / normalization_factor
+
+    # Create the interpolant
+    interpolant = interp1d(z_range, mixture, bounds_error=False,
+                           fill_value=0.0)
+
+    # # CHECK THE INTERPOLANT
+    # import matplotlib.pyplot as plt
+
+    # true_values = np.array([mixture[i] for i in range(len(z_range))])
+    # interpolant_values = np.array([interpolant(z) for z in z_range])
+
+    # plt.plot(z_range, true_values, label="True Function", linestyle="--")
+    # plt.plot(z_range, interpolant_values, label="Interpolant", linestyle="-")
+    # plt.xlabel("Redshift (z)")
+    # plt.ylabel("Galaxy Weighted Mixture")
+    # plt.legend()
+    # plt.title("Comparison of True Function vs Interpolant")
+    # plt.show()
+    print(f"Computed galaxy mixture model for event {event.ID}.")
+    return interpolant
 
 
 def sigma_weak_lensing(const double z, const double dl):

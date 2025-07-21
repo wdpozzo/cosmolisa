@@ -333,6 +333,7 @@ def read_dark_siren_event(input_folder,
                 snr, snr_true) = np.loadtxt(input_folder+"/"+ev+"/ID.dat", comments='#')
         except ValueError as err:
             print(err)
+            return None
 
         ID = np.int(event_id)
         dl = np.float64(dl)
@@ -355,6 +356,7 @@ def read_dark_siren_event(input_folder,
                     input_folder+"/"+ev+"/ERRORBOX.dat", unpack=True))
             except ValueError as err:
                 print(err)
+                return None
             if not z_gal_cosmo:
                 redshifts = np.atleast_1d(zobs)
             else:
