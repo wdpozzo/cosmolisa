@@ -73,7 +73,7 @@ cdef double _lk_dark_single_event_trap(const double[:,::1] hosts,
 
         z += dz
     
-    return I*dz/z_prior_norm
+    return I/z_prior_norm
 
 
 @cython.boundscheck(False)
